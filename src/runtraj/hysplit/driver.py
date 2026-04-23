@@ -1,4 +1,4 @@
-"""HYSPLIT runner: binary resolution and simulation execution."""
+"""HYSPLIT driver: binary resolution and simulation execution."""
 
 import platform
 import subprocess
@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from stilt.artifacts import resolve_directory
 from stilt.config import (
     STILTParams,
     build_setup_entries,
@@ -23,6 +22,7 @@ from stilt.errors import (
 from stilt.hysplit.control import ControlFile
 from stilt.hysplit.namelist import NameList
 from stilt.receptor import Receptor
+from stilt.storage import resolve_directory
 
 CONTROL_FILE = "CONTROL"
 SETUP_FILE = "SETUP.CFG"
@@ -77,7 +77,7 @@ class HYSPLITResult:
     stdout: str
 
 
-class HYSPLITRunner:
+class HYSPLITDriver:
     """Prepares and executes one HYSPLIT run in a simulation directory."""
 
     def __init__(
