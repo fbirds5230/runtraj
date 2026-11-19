@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
-# Install STILT-R's Linux HYSPLIT, at the commit STILT_R_SHA in
-# .github/workflows/stilt-r.yml pins, as a HYSPLIT folder: /opt/hysplit/exec/
-# hycs_std and the four data tables in /opt/hysplit/bdyfiles/, with hycs_std on
-# PATH. PYSTILT includes no HYSPLIT, so the jobs that run it take the build
-# STILT-R's parity is checked against.
+# Install a Linux HYSPLIT as a HYSPLIT folder: /opt/hysplit/exec/hycs_std and
+# the four data tables in /opt/hysplit/bdyfiles/, with hycs_std on PATH.
+# runtraj includes no HYSPLIT, so the jobs that run it take the v5.1.0 build
+# that the uataq/stilt repository publishes, at the commit below.
 set -euo pipefail
-sha="$(sed -nE 's/^ *STILT_R_SHA: *([0-9a-f]{40}).*/\1/p' .github/workflows/stilt-r.yml)"
-if [ -z "$sha" ]; then
-  echo "::error::No STILT_R_SHA in .github/workflows/stilt-r.yml."
-  exit 1
-fi
+sha="278b1ef6d542efd21c6ccab2a85b796acd9812a6"
 base="https://raw.githubusercontent.com/uataq/stilt/$sha"
 tmp="$(mktemp -d)"
 mkdir -p "$tmp/exec" "$tmp/bdyfiles"

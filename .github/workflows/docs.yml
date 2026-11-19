@@ -48,12 +48,12 @@ jobs:
       - name: Install
         run: uv sync --locked
 
-      # The pages that run a simulation take STILT-R's HYSPLIT.
+      # The pages that run a simulation need a hycs_std.
       - name: Install HYSPLIT
         run: .github/scripts/install_hysplit.sh
 
       # The Getting Started page runs a real simulation on the met files the
-      # tests cache: the same cache and key as tests.yml and stilt-r.yml.
+      # tests cache: the same cache and key as tests.yml.
       - name: Restore HRRR met cache
         id: met-cache
         uses: actions/cache/restore@v6
@@ -64,7 +64,7 @@ jobs:
       - name: Prewarm HRRR met cache
         if: steps.met-cache.outputs.cache-hit != 'true'
         env:
-          STILT_TEST_FETCH_MET: "1"
+          RUNTRAJ_TEST_FETCH_MET: "1"
         run: |
           uv run pytest \
             tests/transport/hysplit/test_release_assignment.py::test_hysplit_multipoint_release_points_follow_control_order \
@@ -79,7 +79,7 @@ jobs:
 
       - name: Build
         env:
-          STILT_TEST_MET_DIR: ${{ github.workspace }}/tests/met_cache
+          RUNTRAJ_TEST_MET_DIR: ${{ github.workspace }}/tests/met_cache
         run: uv run just build-docs
 
       - uses: actions/upload-artifact@v7
@@ -131,7 +131,7 @@ jobs:
           echo "target=$target" >> "$GITHUB_ENV"
           uv run --no-project --with packaging python src/.github/scripts/docs_versions.py \
             site html "$target" \
-            --base-url "https://jmineau.github.io/PYSTILT/" \
+            --base-url "https://jmineau.github.io/runtraj/" \
             --prereleases "$DOCS_PRERELEASES"
 
       # GitHub Pages serves the branch, so this push publishes the site: its

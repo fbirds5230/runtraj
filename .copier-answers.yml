@@ -3,19 +3,18 @@ _commit: v1.4.0
 _src_path: gh:jmineau/python-template
 affiliation: University of Utah
 copyright_year: '2025'
-distribution_name: pystilt
+distribution_name: runtraj
 docs_notebooks: false
 email: jameskmineau@gmail.com
 full_name: James Mineau
 github_username: jmineau
 orcid: 0000-0002-2289-2252
-package_name: stilt
-project_name: PYSTILT
-project_short_description: A Python implementation of the STILT Lagrangian atmospheric
-    transport model.
+package_name: runtraj
+project_name: runtraj
+project_short_description: Run particle dispersion models at scale.
 publish_to_pypi: true
 python_min: '3.11'
-repository_name: PYSTILT
+repository_name: runtraj
 test_os:
 - ubuntu-latest
 - macos-latest

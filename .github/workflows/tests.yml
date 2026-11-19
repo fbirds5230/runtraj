@@ -90,7 +90,7 @@ jobs:
 
   integration:
     name: Integration tests
-    runs-on: ubuntu-latest  # STILT-R's hycs_std is linux_x64
+    runs-on: ubuntu-latest  # the hycs_std install_hysplit.sh takes is linux_x64
     env:
       UV_NO_SYNC: "1"
 
@@ -117,13 +117,13 @@ jobs:
         with:
           path: tests/met_cache
           # Bump the version suffix when _MET_BLOCKS changes in conftest.py
-          # (the same key in stilt-r.yml and docs.yml)
+          # (the same key in docs.yml)
           key: met-hrrr-2021-v1
 
       - name: Prewarm HRRR met cache
         if: steps.met-cache.outputs.cache-hit != 'true'
         env:
-          STILT_TEST_FETCH_MET: "1"
+          RUNTRAJ_TEST_FETCH_MET: "1"
         run: |
           uv run pytest \
             tests/transport/hysplit/test_release_assignment.py::test_hysplit_multipoint_release_points_follow_control_order \
@@ -138,7 +138,7 @@ jobs:
 
       - name: Run integration tests
         env:
-          STILT_TEST_MET_DIR: ${{ github.workspace }}/tests/met_cache
+          RUNTRAJ_TEST_MET_DIR: ${{ github.workspace }}/tests/met_cache
         # One worker per core (4 on ubuntu-latest); conftest.py groups the tests
         # that share a HYSPLIT run.
         run: uv run pytest tests/ -v -m integration -n auto --dist loadgroup
@@ -173,9 +173,9 @@ jobs:
 
       - name: Smoke test the installed package
         run: |
-          .pkgtest/bin/python -c "import stilt; print(stilt.__version__)"
-          .pkgtest/bin/python -m stilt --help
-          .pkgtest/bin/stilt --help
+          .pkgtest/bin/python -c "import runtraj; print(runtraj.__version__)"
+          .pkgtest/bin/python -m runtraj --help
+          .pkgtest/bin/runtraj --help
 
       - name: Check the wheel and sdist hold no HYSPLIT file
         run: |
@@ -196,8 +196,8 @@ jobs:
       - name: Without hycs_std, the installed package says what to set
         run: |
           .pkgtest/bin/python - <<'PY'
-          from stilt.exceptions import HYSPLITNotFoundError
-          from stilt.transport.hysplit import find_hycs_std
+          from runtraj.exceptions import HYSPLITNotFoundError
+          from runtraj.transport.hysplit import find_hycs_std
 
           try:
               find_hycs_std()

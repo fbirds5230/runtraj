@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in stilt raises, crashes, or gives wrong results
+description: Something in runtraj raises, crashes, or gives wrong results
 labels: ["bug"]
 body:
   - type: textarea
@@ -21,7 +21,7 @@ body:
     id: versions
     attributes:
       label: Versions
-      description: Output of `python -c "import stilt, sys; print(stilt.__version__, sys.version)"` and your OS.
+      description: Output of `python -c "import runtraj, sys; print(runtraj.__version__, sys.version)"` and your OS.
       render: text
     validations:
       required: true
