@@ -35,7 +35,7 @@ from pydantic import (
 from shapely import Geometry, LineString, MultiPoint, Point
 
 if TYPE_CHECKING:
-    from stilt.visualization import ReleasePlotAccessor
+    from runtraj.visualization import ReleasePlotAccessor
 
 from .validation import _raise_first, column_errors, multipoint_errors, point_errors
 
@@ -286,7 +286,7 @@ class Release(BaseModel):
         repr=False,
         description=(
             "Extra labels, such as a site or scene name: the columns of "
-            "``releases.csv`` that PYSTILT does not use. They are kept when the "
+            "``releases.csv`` that runtraj does not use. They are kept when the "
             "releases are written back, and are columns of "
             "``project.releases`` and ``project.simulations`` to select on. "
             "They are not part of the release's id or of equality."
@@ -358,7 +358,7 @@ class Release(BaseModel):
     @cached_property
     def plot(self) -> ReleasePlotAccessor:
         """Plotting methods, such as ``release.plot.map()``."""
-        from stilt.visualization import ReleasePlotAccessor
+        from runtraj.visualization import ReleasePlotAccessor
 
         return ReleasePlotAccessor(self)
 

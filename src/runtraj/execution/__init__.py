@@ -5,8 +5,8 @@ Running simulations: the runner that starts the work and the workers that do it.
 submits it and returns, and :func:`wait` waits for a job array.
 :func:`pending` is the releases either would run. :func:`task_share` is which releases one task of a
 job array runs, and :func:`job_script` the script such a job array runs, for
-a scheduler PYSTILT does not drive itself. The workers are in
-:mod:`stilt.execution.worker`.
+a scheduler runtraj does not drive itself. The workers are in
+:mod:`runtraj.execution.worker`.
 """
 
 from .config import ExecutionConfig, FetchConfig, LocalConfig, SlurmConfig

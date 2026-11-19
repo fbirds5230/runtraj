@@ -8,8 +8,8 @@ makes that a SimulationError (reason TIMEOUT) the execution loop already handles
 
 import pytest
 
-from stilt.execution.config import ExecutionConfig
-from stilt.transport.hysplit.config import HysplitConfig
+from runtraj.execution.config import ExecutionConfig
+from runtraj.transport.hysplit.config import HysplitConfig
 
 from ...fixtures.factories import make_met_config, make_met_files, make_variant
 
@@ -25,9 +25,9 @@ def _stop(workdir, timeout=None):
 @pytest.fixture
 def sim(monkeypatch, tmp_path, point_release):
     """A Simulation with HYSPLIT stubbed out, and a runner for it."""
-    from stilt.output import Output
-    from stilt.simulation import Simulation
-    from stilt.transport.hysplit import model
+    from runtraj.output import Output
+    from runtraj.simulation import Simulation
+    from runtraj.transport.hysplit import model
 
     monkeypatch.setattr(model, "write_inputs", lambda *args, **kwargs: None)
     monkeypatch.setattr(model, "run_hycs_std", _stop)
@@ -43,7 +43,7 @@ def sim(monkeypatch, tmp_path, point_release):
 
 
 def _run(sim, tmp_path, **kwargs):
-    from stilt.execution.worker import run_particles
+    from runtraj.execution.worker import run_particles
 
     return run_particles(sim, workdir=tmp_path / "scratch", **kwargs)
 

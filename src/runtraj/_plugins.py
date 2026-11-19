@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-from stilt.exceptions import MissingClass
+from runtraj.exceptions import MissingClass
 
 #: Packages whose name on PyPI is not the name they are imported by.
 _INSTALL_NAMES = {"stilt": "pystilt"}

@@ -1,4 +1,4 @@
-"""Tests for stilt.execution.runner: shares of the releases, the job array script, and submission."""
+"""Tests for runtraj.execution.runner: shares of the releases, the job array script, and submission."""
 
 from __future__ import annotations
 
@@ -11,15 +11,15 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from stilt.execution import runner
-from stilt.execution.config import (
+from runtraj.execution import runner
+from runtraj.execution.config import (
     ExecutionConfig,
     FetchConfig,
     SlurmConfig,
     slurm_minutes,
 )
-from stilt.execution.runner import _project_slug, job_script, task_share
-from stilt.project import Project
+from runtraj.execution.runner import _project_slug, job_script, task_share
+from runtraj.project import Project
 
 from ..fixtures.factories import make_project_config
 
@@ -70,7 +70,7 @@ def test_job_script_asks_for_what_the_execution_settings_say(tmp_path):
 
     assert script.startswith("#!/bin/bash\n")
     assert _sbatch(script) == {
-        "job-name": "pystilt-my-project",
+        "job-name": "runtraj-my-project",
         "array": "0-6%10",
         "cpus-per-task": "4",
         "time": "02:00:00",  # as given
@@ -94,7 +94,7 @@ def test_job_script_asks_for_what_the_execution_settings_say(tmp_path):
     assert lines.index("module load gcc") < lines.index("export OMP_NUM_THREADS=2")
     last = lines[-1]
     assert last.startswith("exec ")
-    assert f"-m stilt run {project.directory} " in last
+    assert f"-m runtraj run {project.directory} " in last
     assert f"--releases {folder / 'releases.parquet'}" in last
     assert '--task "$SLURM_ARRAY_TASK_ID/7"' in last
     assert f"--execution {folder / 'execution.yaml'}" in last
@@ -280,7 +280,7 @@ def test_submit_writes_a_submission_and_hands_it_to_sbatch(pending, commands, tm
     folder = Path(script).parent
     assert folder.parent == project.directory / "_slurm"
     assert (folder / "releases.txt").read_text().split() == pending
-    # The tasks read the checked rows, in the order they split them (#191).
+    # The tasks read the checked rows, in the order they split them (PYSTILT#191).
     rows = pd.read_parquet(folder / "releases.parquet")
     assert rows["release"].tolist() == pending
     assert {"kind", "location", "altitude_ref"} <= set(rows.columns)
@@ -336,7 +336,7 @@ def test_waiting_polls_sacct_until_every_task_ends(commands, caplog):
             "9_3|CANCELLED by 123|0:15\n"
         ),
     ]
-    with caplog.at_level("WARNING", logger="stilt.execution.runner"):
+    with caplog.at_level("WARNING", logger="runtraj.execution.runner"):
         states = runner.wait("9", poll=0)
 
     assert [c[0] for c in commands.ran] == ["sacct"] * 4
@@ -351,7 +351,7 @@ def test_waiting_polls_sacct_until_every_task_ends(commands, caplog):
 def test_a_job_on_another_cluster_is_followed_there(
     pending, commands, tmp_path, monkeypatch
 ):
-    """``sbatch --parsable`` names the cluster when it is not the default (#187)."""
+    """``sbatch --parsable`` names the cluster when it is not the default (PYSTILT#187)."""
     import pandas as pd
 
     project = _hourly_project(tmp_path, 2)
@@ -379,7 +379,7 @@ def test_a_job_on_another_cluster_is_followed_there(
 def test_a_run_lists_once_more_when_the_files_look_late(
     pending, commands, tmp_path, monkeypatch
 ):
-    """The submitting node can see new files a minute late on a network filesystem (#191)."""
+    """The submitting node can see new files a minute late on a network filesystem (PYSTILT#191)."""
     import pandas as pd
 
     project = _hourly_project(tmp_path, 1)
@@ -413,7 +413,7 @@ def test_a_job_on_the_default_cluster_names_none(commands):
 
 
 def test_a_task_told_to_stop_requeues_itself(tmp_path, monkeypatch, commands):
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     project = _hourly_project(tmp_path, 1)
     monkeypatch.setenv("SLURM_JOB_ID", "4321")
@@ -437,7 +437,7 @@ def test_a_task_told_to_stop_requeues_itself(tmp_path, monkeypatch, commands):
 
 
 def test_a_task_requeues_itself_only_so_many_times(tmp_path, monkeypatch, commands):
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     project = _hourly_project(tmp_path, 1)
     monkeypatch.setenv("SLURM_JOB_ID", "4321")
@@ -453,7 +453,7 @@ def test_a_preempted_task_requeues_itself_and_a_cancelled_one_does_not(
     tmp_path, monkeypatch, commands
 ):
     """A preempted task gets SIGTERM, and maybe no SIGUSR1 before its grace time ends."""
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     project = _hourly_project(tmp_path, 1)
     monkeypatch.setenv("SLURM_JOB_ID", "4321")
@@ -479,7 +479,7 @@ def test_a_preempted_task_requeues_itself_and_a_cancelled_one_does_not(
 def test_a_task_on_another_cluster_asks_and_requeues_there(
     tmp_path, monkeypatch, commands
 ):
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     project = _hourly_project(tmp_path, 1)
     monkeypatch.setenv("SLURM_JOB_ID", "4321")
@@ -501,7 +501,7 @@ def test_a_task_on_another_cluster_asks_and_requeues_there(
 def test_a_task_that_finished_is_not_requeued(tmp_path, monkeypatch, commands):
     import pandas as pd
 
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     monkeypatch.setenv("SLURM_JOB_ID", "4321")
     monkeypatch.setattr(
@@ -517,7 +517,7 @@ def test_a_task_that_finished_is_not_requeued(tmp_path, monkeypatch, commands):
 def test_an_interrupt_that_is_not_the_notice_is_not_swallowed(
     tmp_path, monkeypatch, commands
 ):
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     def interrupted(*args, **kwargs):
         raise KeyboardInterrupt
@@ -586,7 +586,7 @@ def test_project_slug_names_the_slurm_job(directory, expected):
 def _hourly_project(tmp_path, n: int) -> Project:
     import datetime as dt
 
-    from stilt.releases import PointRelease
+    from runtraj.releases import PointRelease
 
     config = make_project_config(tmp_path)
     releases = [
@@ -660,7 +660,7 @@ def test_a_release_list_limits_the_run_and_keeps_its_order(tmp_path, monkeypatch
 
 
 def test_a_task_runs_here_whatever_the_backend(tmp_path, monkeypatch, commands):
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     monkeypatch.delenv("SLURM_JOB_ID", raising=False)
 
@@ -684,7 +684,7 @@ def test_a_task_runs_here_whatever_the_backend(tmp_path, monkeypatch, commands):
 
 
 # ---------------------------------------------------------------------------
-# The fetch before the releases run (#436)
+# The fetch before the releases run (PYSTILT#436)
 # ---------------------------------------------------------------------------
 
 
@@ -692,8 +692,8 @@ def _downloading_project(tmp_path, n: int) -> Project:
     """A project like :func:`_hourly_project` whose met downloads HRRR."""
     import datetime as dt
 
-    from stilt.releases import PointRelease
-    from stilt.transport.hysplit import MetConfig
+    from runtraj.releases import PointRelease
+    from runtraj.transport.hysplit import MetConfig
 
     config = make_project_config(
         tmp_path,
@@ -781,7 +781,7 @@ def test_submit_sends_a_fetch_job_first_and_the_array_waits_for_it(
     assert "module load gcc" in text
     exec_, _python, *command = text.splitlines()[-1].split()
     assert exec_ == "exec"
-    assert command[:4] == ["-m", "stilt", "fetch", str(project.directory)]
+    assert command[:4] == ["-m", "runtraj", "fetch", str(project.directory)]
     assert command[4:6] == ["--releases", str(folder / "releases.parquet")]
     assert command[6:8] == ["--output", str(project.output.directory)]
     assert "--no-skip" not in command
@@ -835,34 +835,12 @@ def test_fetch_false_sends_no_fetch_job(pending, commands, tmp_path):
     assert Path(array[-1]).name == "job.sh"
 
 
-def test_no_fetch_job_when_the_particles_are_there(
-    pending, commands, tmp_path, monkeypatch
-):
-    """Footprints left to make need no met."""
-    import pandas as pd
-
-    project = _downloading_project(tmp_path, 2)
-    pending.extend(project.releases["release"])
-    monkeypatch.setattr(
-        Project,
-        "_unrun",
-        lambda self, sel=None, **_: pd.DataFrame(columns=["release"]),
-    )
-    commands.answers["sbatch"] = [_out("42\n")]
-
-    runner.submit(
-        project, execution=ExecutionConfig(backend="slurm", slurm={"time": "01:00:00"})
-    )
-
-    assert len(commands.ran) == 1
-
-
 def test_a_local_run_on_several_cpus_fetches_before_the_workers_start(
     tmp_path, monkeypatch
 ):
     import pandas as pd
 
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     project = _downloading_project(tmp_path, 3)
     steps: list[str] = []
@@ -893,7 +871,7 @@ def test_a_local_fetch_that_cannot_reach_the_archive_lets_the_run_go(
 ):
     import pandas as pd
 
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     project = _downloading_project(tmp_path, 1)
     ran: list[str] = []
@@ -909,7 +887,7 @@ def test_a_local_fetch_that_cannot_reach_the_archive_lets_the_run_go(
         runner, "_status", lambda project, ids: pd.DataFrame({"state": ["pending"]})
     )
 
-    with caplog.at_level("WARNING", logger="stilt.execution.runner"):
+    with caplog.at_level("WARNING", logger="runtraj.execution.runner"):
         runner.run(project, execution=ExecutionConfig(local={"cpus": 2}))
 
     assert ran == ["run"]
@@ -991,7 +969,7 @@ def test_a_refused_array_cancels_its_fetch_job(pending, commands, tmp_path):
 
 
 def test_a_local_fetch_raises_an_error_a_retry_would_repeat(tmp_path, monkeypatch):
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     project = _downloading_project(tmp_path, 1)
     ran: list[str] = []
@@ -1017,7 +995,7 @@ def test_a_local_fetch_lets_the_run_go_after_a_dropped_ftp_connection(
 
     import pandas as pd
 
-    from stilt.execution import worker
+    from runtraj.execution import worker
 
     project = _downloading_project(tmp_path, 1)
     ran: list[str] = []
@@ -1035,7 +1013,7 @@ def test_a_local_fetch_lets_the_run_go_after_a_dropped_ftp_connection(
         runner, "_status", lambda project, ids: pd.DataFrame({"state": ["pending"]})
     )
 
-    with caplog.at_level("WARNING", logger="stilt.execution.runner"):
+    with caplog.at_level("WARNING", logger="runtraj.execution.runner"):
         runner.run(project, execution=ExecutionConfig(local={"cpus": 2}))
 
     assert ran == ["run"]

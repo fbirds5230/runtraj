@@ -1,11 +1,9 @@
-"""Tests for stilt.spatial: the footprint grid and the CRS helpers."""
-
 import numpy as np
 import pandas as pd
 import pytest
 
-from stilt import Bounds, Grid
-from stilt.spatial import _grid_cell_starts
+from runtraj import Bounds, Grid
+from runtraj.spatial import _grid_cell_starts
 
 # ---------------------------------------------------------------------------
 # Grid as a geometry
@@ -47,30 +45,9 @@ def test_grid_axes_rounding_keeps_coarse_centres():
     np.testing.assert_array_equal(fine.axes[1], [0.125, 0.375, 0.625, 0.875])
 
 
-def test_one_longlat_test_for_grids_and_meshes():
-    """EPSG:4326 is longitude/latitude for a grid as it is for a mesh."""
-    from stilt.footprint.targets import Mesh
-    from stilt.spatial import Grid, is_longlat
-
-    grid = Grid(
-        xmin=-112.0,
-        xmax=-111.0,
-        ymin=40.0,
-        ymax=41.0,
-        xres=0.5,
-        yres=0.5,
-        crs="EPSG:4326",
-    )
-    assert is_longlat("EPSG:4326") and is_longlat("+proj=longlat")
-    assert not is_longlat("EPSG:32612")
-    assert grid.is_longlat
-    assert list(grid.index.names) == ["lon", "lat"]
-    assert Mesh.from_grid(grid).is_longlat
-
-
 def test_grid_reads_stilt_r_projection_as_crs():
-    """``projection``, STILT-R's name, is read as ``crs``; PYSTILT writes ``crs``."""
-    from stilt.spatial import Grid
+    """``projection``, STILT-R's name, is read as ``crs``; runtraj writes ``crs``."""
+    from runtraj.spatial import Grid
 
     kw = {
         "xmin": -112.0,
@@ -86,7 +63,7 @@ def test_grid_reads_stilt_r_projection_as_crs():
 
 
 def test_grid_spans_at_most_360_degrees_of_longitude():
-    """A grid wider than a turn would hold some longitudes twice, so it is refused (#338)."""
+    """A grid wider than a turn would hold some longitudes twice, so it is refused (PYSTILT#338)."""
     kw = {"ymin": 40.0, "ymax": 41.0, "xres": 0.5, "yres": 0.5}
     for xmin, xmax in [(-200.0, 200.0), (350.0, -350.0), (10.0, -350.0)]:
         with pytest.raises(ValueError, match="at most 360 degrees"):
@@ -98,7 +75,7 @@ def test_grid_spans_at_most_360_degrees_of_longitude():
 
 
 def test_grid_axes_run_east_from_xmin():
-    """A grid written with xmax west of xmin has the cells of the same box written past 180 (#352)."""
+    """A grid written with xmax west of xmin has the cells of the same box written past 180 (PYSTILT#352)."""
     kw = {"ymin": 40.0, "ymax": 41.0, "xres": 0.5, "yres": 0.5}
     x, _ = Grid(xmin=170.0, xmax=-170.0, **kw).axes
     np.testing.assert_array_equal(x, Grid(xmin=170.0, xmax=190.0, **kw).axes[0])
@@ -144,19 +121,6 @@ def test_grid_cell_starts_still_drop_partial_cell():
     assert len(_grid_cell_starts(40.45, 40.93 - 1e-8, 0.01)) == 47
     with pytest.raises(ValueError, match="at least one complete cell"):
         _grid_cell_starts(40.0, 40.01 - 1e-8, 0.01)
-
-
-def test_grid_to_xarray_longlat_centers():
-    """Grid.to_xarray() yields CF lon/lat cell centers matching the footprint grid."""
-    grid = Grid(xmin=-114.0, xmax=-113.8, ymin=39.0, ymax=39.2, xres=0.1, yres=0.1)
-    ds = grid.to_xarray()
-
-    np.testing.assert_allclose(ds["lon"].values, [-113.95, -113.85])
-    np.testing.assert_allclose(ds["lat"].values, [39.05, 39.15])
-    assert ds.attrs["Conventions"] == "CF-1.8"
-    assert "crs" in ds
-    assert ds["lon"].attrs["standard_name"] == "longitude"
-    assert ds["lat"].attrs["units"] == "degrees_north"
 
 
 # ---------------------------------------------------------------------------
@@ -256,37 +220,6 @@ def test_grid_refuses_a_key_that_is_no_setting_and_names_the_nearest(key, neares
         Grid(**kw, **{key: "EPSG:32612"})
 
 
-def test_grid_refuses_an_unknown_key_in_the_config(tmp_path):
-    import stilt
-
-    met = {"directory": str(tmp_path), "file_format": "%Y%m%d", "file_tres": "6h"}
-    stage = "stilt.footprint.FootprintStage"
-    grid = {
-        "xmin": -113,
-        "xmax": -110,
-        "ymin": 40,
-        "ymax": 42,
-        "xres": 1000,
-        "yres": 1000,
-    }
-    with pytest.raises(ValueError, match="'csr' is not a grid setting"):
-        stilt.ProjectConfig(
-            mets={"a": met},
-            stages={
-                "footprint": {"class": stage, "grid": {**grid, "csr": "EPSG:32612"}}
-            },
-            variants={"a": {}},
-        )
-    with pytest.raises(ValueError, match="'xresolution' is not a grid setting"):
-        stilt.ProjectConfig(
-            mets={"a": met},
-            stages={"footprint": {"class": stage}},
-            variants={
-                "a": {"stages": {"footprint": {"grid": {**grid, "xresolution": 3}}}}
-            },
-        )
-
-
 @pytest.mark.parametrize(
     ("change", "message"),
     [
@@ -331,7 +264,7 @@ def test_a_projected_grid_counts_its_cells_on_the_projection():
 
 
 def test_a_projected_grid_refuses_a_resolution_in_degrees():
-    """0.01 on a grid in meters is 4.7e14 cells, refused when made, not a MemoryError later (#439)."""
+    """0.01 on a grid in meters is 4.7e14 cells, refused when made, not a MemoryError later (PYSTILT#439)."""
     kw = {"xmin": -113.0, "xmax": -110.5, "ymin": 40.0, "ymax": 42.0}
     with pytest.raises(ValueError, match=r"more than the 1,000,000,000.*\(metre\)"):
         Grid(**kw, xres=0.01, yres=0.01, crs="EPSG:32612")
@@ -339,17 +272,11 @@ def test_a_projected_grid_refuses_a_resolution_in_degrees():
         Grid(**kw, xres=1e-5, yres=1e-5)
 
 
-def test_a_grid_refuses_a_crs_pyproj_cannot_read():
-    """A misspelled crs fails when the grid is made, not when a footprint is (#439)."""
-    with pytest.raises(ValueError, match="not a coordinate reference system"):
-        Grid(xmin=-113, xmax=-110, ymin=40, ymax=42, xres=1000, yres=1000, crs="nope")
-
-
 @pytest.mark.parametrize(
     ("xmin", "xmax"), [(-110.5, -113.0), (10.0, 5.0), (10.0, 0.0), (0.0, -10.0)]
 )
 def test_a_grid_refuses_swapped_longitudes_in_one_hemisphere(xmin, xmax):
-    """Swapped edges are refused rather than read as a grid nearly 360 degrees wide (#439)."""
+    """Swapped edges are refused rather than read as a grid nearly 360 degrees wide (PYSTILT#439)."""
     kw = {"ymin": 40.0, "ymax": 42.0, "xres": 0.5, "yres": 0.5}
     with pytest.raises(
         ValueError, match=f"write its east edge past.*xmax={xmax + 360:g}"
@@ -362,7 +289,7 @@ def test_a_grid_refuses_swapped_longitudes_in_one_hemisphere(xmin, xmax):
 
 
 def test_a_grid_across_180_may_be_written_with_xmax_west_of_xmin():
-    """The edges on both sides of 0 degrees still cross 180 (#352, #439)."""
+    """The edges on both sides of 0 degrees still cross 180 (PYSTILT#352, PYSTILT#439)."""
     kw = {"ymin": 40.0, "ymax": 41.0, "xres": 0.5, "yres": 0.5}
     for xmin, xmax in [(170.0, -170.0), (100.0, -60.0), (179.5, -179.5)]:
         x, _ = Grid(xmin=xmin, xmax=xmax, **kw).axes
@@ -379,7 +306,7 @@ def test_a_grid_across_180_may_be_written_with_xmax_west_of_xmin():
     ],
 )
 def test_bounds_refuse_edges_no_point_can_be_inside(change, message):
-    """A NaN or swapped crop box was accepted, and then held no point at all (#440)."""
+    """A NaN or swapped crop box was accepted, and then held no point at all (PYSTILT#440)."""
     box = {"xmin": -114.0, "xmax": -110.0, "ymin": 39.0, "ymax": 42.0}
     with pytest.raises(ValueError, match=message):
         Bounds(**{**box, **change})

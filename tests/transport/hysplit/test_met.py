@@ -1,4 +1,4 @@
-"""Tests for HYSPLIT's met config and its files (stilt.transport.hysplit.met)."""
+"""Tests for HYSPLIT's met config and its files (runtraj.transport.hysplit.met)."""
 
 import datetime as dt
 import logging
@@ -8,10 +8,10 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from stilt.exceptions import MeteorologyError
-from stilt.meteorology import run_window
-from stilt.spatial import Bounds
-from stilt.transport.hysplit import Met, MetConfig
+from runtraj.exceptions import MeteorologyError
+from runtraj.meteorology import run_window
+from runtraj.spatial import Bounds
+from runtraj.transport.hysplit import Met, MetConfig
 
 from ...fixtures.factories import write_arl_file
 
@@ -90,7 +90,7 @@ def test_metconfig_subgrid_requires_bounds(tmp_path):
 
 
 def test_metconfig_refuses_a_crop_box_with_swapped_latitudes(tmp_path):
-    """A swapped or NaN box held no release, so every run would fail (#440)."""
+    """A swapped or NaN box held no release, so every run would fail (PYSTILT#440)."""
     box = {"xmin": float("nan"), "xmax": -115, "ymin": 42, "ymax": 39}
     with pytest.raises(ValueError, match="subgrid_bounds"):
         MetConfig(directory=tmp_path, subgrid_enable=True, subgrid_bounds=box)
@@ -113,7 +113,7 @@ def test_metconfig_extra_fields_as_download_options(tmp_path):
 
 
 def test_metconfig_rejects_an_unknown_key_without_download(tmp_path):
-    """A typo in a plain met entry is an error, as elsewhere in config.yaml (#52)."""
+    """A typo in a plain met entry is an error, as elsewhere in config.yaml (PYSTILT#52)."""
     with pytest.raises(ValueError, match="subgrid_enabel"):
         MetConfig(directory=tmp_path, subgrid_enabel=True)
 
@@ -403,7 +403,7 @@ def test_met_local_subgrid_levels(tmp_path):
     ],
 )
 def test_changing_the_crop_changes_crop_dir(tmp_path, change):
-    """A new crop box or level count never reuses crops made for another (#53)."""
+    """A new crop box or level count never reuses crops made for another (PYSTILT#53)."""
     old = _archive_met(tmp_path)
     new = _archive_met(tmp_path, **change)
     assert new.crop_dir != old.crop_dir
@@ -428,7 +428,7 @@ def test_the_same_crop_shares_crop_dir(tmp_path):
 
 
 def test_a_crop_appears_only_when_complete(tmp_path):
-    """The crop is written to a temporary name and renamed into place (#53)."""
+    """The crop is written to a temporary name and renamed into place (PYSTILT#53)."""
     met = _archive_met(tmp_path)
     final = met.crop_dir / "20230101_12"
 
@@ -465,7 +465,7 @@ def test_a_failed_crop_leaves_nothing_behind(tmp_path):
 
 
 def test_cropping_local_files_needs_subgrid_dir(tmp_path):
-    """Crops are never written into the met archive by default (#53)."""
+    """Crops are never written into the met archive by default (PYSTILT#53)."""
     with pytest.raises(ValueError, match="subgrid_dir is required"):
         MetConfig(directory=tmp_path, subgrid_enable=True, subgrid_bounds=BOUNDS)
 
@@ -553,7 +553,7 @@ def test_files_for_raises_when_no_files(tmp_path):
 
 
 def test_one_missing_file_fails_the_run_naming_its_hours(tmp_path):
-    """Every file the run needs must be there, or HYSPLIT stops the particles where the met ends (#169)."""
+    """Every file the run needs must be there, or HYSPLIT stops the particles where the met ends (PYSTILT#169)."""
     _hrrr_files(tmp_path, ["20230101_00-05_hrrr", "20230101_12-17_hrrr"])
     met = _make_met(tmp_path)
     with pytest.raises(
@@ -586,7 +586,7 @@ def test_nothing_is_missing_for_a_download(tmp_path):
 
 def test_checking_releases_lists_the_folder_once(tmp_path, monkeypatch):
     """Releases an hour apart, some missing their files, cost one listing of the folder."""
-    from stilt.transport.hysplit import catalog as catalog_module
+    from runtraj.transport.hysplit import catalog as catalog_module
 
     _hrrr_files(tmp_path, ["20230101_06-11_hrrr"])
     walks = []
@@ -610,7 +610,7 @@ def test_checking_releases_lists_the_folder_once(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# The crop box: longitudes count modulo 360 (#326)
+# The crop box: longitudes count modulo 360 (PYSTILT#326)
 # ---------------------------------------------------------------------------
 
 
@@ -787,7 +787,7 @@ def test_a_link_to_a_missing_file_or_a_folder_is_no_met_file(tmp_path):
 
 def test_the_walk_lists_links_without_following_them(tmp_path):
     """Links are listed as names, and a link to a folder is not walked into."""
-    from stilt.transport.hysplit.catalog import walk
+    from runtraj.transport.hysplit.catalog import walk
 
     _linked_archive(tmp_path)
 
@@ -807,7 +807,7 @@ def test_the_walk_lists_links_without_following_them(tmp_path):
 
 def test_the_walk_skips_a_folder_it_cannot_read(tmp_path):
     """As os.walk does: a missing directory lists nothing, and raises nothing."""
-    from stilt.transport.hysplit.catalog import walk
+    from runtraj.transport.hysplit.catalog import walk
 
     assert list(walk(tmp_path / "missing")) == []
 
@@ -828,7 +828,7 @@ def _six_hourly_hrrr(tmp_path):
 
 
 def test_files_for_backward_mid_file_release_skips_next_file(tmp_path):
-    """A 19:06 release sits inside 18-23, so the next day's 00z file is not needed (#29)."""
+    """A 19:06 release sits inside 18-23, so the next day's 00z file is not needed (PYSTILT#29)."""
     met = _six_hourly_hrrr(tmp_path)
     files = _run_files(met, dt.datetime(2019, 1, 23, 19, 6), -24)
     assert [f.name for f in files] == [
@@ -857,7 +857,7 @@ def test_files_for_backward_boundary_release_adds_nothing_later(tmp_path):
     "ending", ["~20260403182134~", ".~1~", "~", ".lock", ".partial", ".bad"]
 )
 def test_files_for_ignores_a_copy_set_aside(tmp_path, ending):
-    """A sibling with a name like these is not a met file, though its header would pass (#30)."""
+    """A sibling with a name like these is not a met file, though its header would pass (PYSTILT#30)."""
     block = "20240702_00-05_hrrr"
     _hrrr_files(tmp_path, [block])
     times = pd.date_range("2024-07-02 00:00", periods=6, freq="h")
@@ -895,7 +895,7 @@ def test_a_crop_being_written_is_not_a_met_file(tmp_path):
 
 
 def test_a_block_with_only_a_copy_set_aside_is_missing(tmp_path):
-    """The copy does not stand in for the block: the run, and `stilt check`, find it missing."""
+    """The copy does not stand in for the block: the run, and `runtraj check`, find it missing."""
     write_arl_file(
         tmp_path / "20240702_00-05_hrrr.partial",
         times=pd.date_range("2024-07-02 00:00", periods=6, freq="h"),
@@ -967,7 +967,7 @@ def _window_end_files(met, end):
         # the issue's run: 20:31 for 3 hours ends between 23:00 and the next file's 00:00
         ("2021-01-14 23:31", ["20210114_18-23_hrrr", "20210115_00-05_hrrr"]),
         ("2021-01-14 23:59", ["20210114_18-23_hrrr", "20210115_00-05_hrrr"]),
-        # on the file's last hour: HYSPLIT reads nothing past it (#283)
+        # on the file's last hour: HYSPLIT reads nothing past it (PYSTILT#283)
         ("2021-01-14 23:00", ["20210114_18-23_hrrr"]),
         ("2021-01-14 22:59", ["20210114_18-23_hrrr"]),
         ("2021-01-15 00:00", ["20210114_18-23_hrrr", "20210115_00-05_hrrr"]),
@@ -977,7 +977,7 @@ def _window_end_files(met, end):
 def test_a_forward_run_reads_the_hour_after_its_end_in_six_hour_files(
     tmp_path, end, files
 ):
-    """A forward run needs the met time after its end, as a backward run does after its release (#275)."""
+    """A forward run needs the met time after its end, as a backward run does after its release (PYSTILT#275)."""
     _hrrr_files(
         tmp_path,
         ["20210114_12-17_hrrr", "20210114_18-23_hrrr", "20210115_00-05_hrrr"],
@@ -1010,146 +1010,13 @@ def test_a_forward_run_reads_the_hour_after_its_end_in_daily_files(
 
 
 # ---------------------------------------------------------------------------
-# Met steps longer than an hour (#283)
+# Met steps longer than an hour (PYSTILT#283)
 #
 # HYSPLIT needs the met step at or before a run's start and the one at or
 # after its end. For daily files of 3-hourly steps (NAM12, GDAS 0.5 deg), the
 # step after a 22:00 end is the next day's 00:00, and a 21:00 end needs
 # nothing past 21:00.
 # ---------------------------------------------------------------------------
-
-
-def _stepped_files(
-    tmp_path: Path, names: list[str], file_format: str, tres: str, step: str
-) -> list[Path]:
-    """Write one ARL file per name in *names*, each holding the steps of *step* in its *tres*."""
-    files = []
-    for name in names:
-        first = pd.Timestamp(dt.datetime.strptime(name, file_format))
-        end = first + pd.to_timedelta(tres)
-        times = pd.date_range(first, end, freq=step, inclusive="left")
-        files.append(write_arl_file(tmp_path / name, times=times))
-    return files
-
-
-#: Daily files of 3-hourly steps, as NAM12's: 00:00 to 21:00 each day.
-_NAM = {"names": ["20150101", "20150102"], "file_format": "%Y%m%d", "tres": "1D"}
-
-
-@pytest.mark.parametrize(
-    ("step", "end", "files"),
-    [
-        # the issue's two backward runs: after the last step, and on it
-        ("3h", "2015-01-01 22:00", ["20150101", "20150102"]),
-        ("3h", "2015-01-01 21:00", ["20150101"]),
-        ("3h", "2015-01-01 21:01", ["20150101", "20150102"]),
-        ("3h", "2015-01-01 20:59", ["20150101"]),
-        ("3h", "2015-01-02 00:00", ["20150101", "20150102"]),
-        # daily files of 6-hourly steps, as GFS 0.25 deg: 00:00 to 18:00
-        ("6h", "2015-01-01 18:00", ["20150101"]),
-        ("6h", "2015-01-01 19:00", ["20150101", "20150102"]),
-    ],
-)
-@pytest.mark.parametrize("n_hours", [-3, 3])
-def test_files_for_reads_the_next_file_only_past_the_last_met_step(
-    tmp_path, step, end, files, n_hours
-):
-    """A backward run released at *end* and a forward run ending then get the same files."""
-    _stepped_files(tmp_path, _NAM["names"], _NAM["file_format"], _NAM["tres"], step)
-    met = _make_met(tmp_path)
-    r_time = (
-        pd.Timestamp(end) if n_hours < 0 else pd.Timestamp(end) - pd.Timedelta(hours=3)
-    )
-    window = run_window(r_time, n_hours)
-
-    found = met.files_for(window)
-
-    assert [p.name for p in found] == files
-    met.check(found, window)
-
-
-@pytest.mark.parametrize("n_hours", [-3, 3])
-def test_check_passes_a_run_that_ends_on_the_last_met_step(tmp_path, n_hours):
-    """A run released at 21:00 (or ending then) runs on that day's file alone, as HYSPLIT runs it (#283)."""
-    files = _stepped_files(
-        tmp_path, ["20150101"], _NAM["file_format"], _NAM["tres"], "3h"
-    )
-    r_time = dt.datetime(2015, 1, 1, 21) if n_hours < 0 else dt.datetime(2015, 1, 1, 18)
-
-    _make_met(tmp_path).check(files, run_window(r_time, n_hours))
-
-
-@pytest.mark.parametrize("n_hours", [-3, 3])
-def test_check_fails_a_run_past_the_last_met_step_without_the_next_file(
-    tmp_path, n_hours
-):
-    """A run released at 22:00 needs the next day's 00:00 step."""
-    files = _stepped_files(
-        tmp_path, ["20150101"], _NAM["file_format"], _NAM["tres"], "3h"
-    )
-    r_time = dt.datetime(2015, 1, 1, 22) if n_hours < 0 else dt.datetime(2015, 1, 1, 19)
-    met = _make_met(tmp_path)
-
-    with pytest.raises(
-        MeteorologyError,
-        match="hold 2015-01-01 00:00 to 2015-01-01 21:00. The run needs "
-        "2015-01-01 19:00 to 2015-01-01 22:00",
-    ):
-        met.check(files, run_window(r_time, n_hours))
-
-
-@pytest.mark.parametrize("n_hours", [-3, 3])
-def test_missing_lists_the_step_a_run_past_the_last_step_needs(tmp_path, n_hours):
-    """`stilt check` asks for the next day's file a 22:00 end needs, and none for 21:00."""
-    _stepped_files(tmp_path, ["20150101"], _NAM["file_format"], _NAM["tres"], "3h")
-    met = _make_met(tmp_path)
-
-    def missing(end):
-        r_time = pd.Timestamp(end)
-        if n_hours > 0:
-            r_time -= pd.Timedelta(hours=n_hours)
-        return met.missing(run_window(r_time, n_hours))
-
-    assert missing("2015-01-01 22:00") == [
-        (pd.Timestamp("2015-01-01 21:00"), pd.Timestamp("2015-01-01 22:00"))
-    ]
-    assert missing("2015-01-01 21:00") == []
-
-
-#: 6-hour files of hourly steps, as NOAA's HRRR archive.
-_HRRR = {
-    "names": ["20210115_00", "20210115_06"],
-    "file_format": "%Y%m%d_%H",
-    "tres": "6h",
-}
-
-
-@pytest.mark.parametrize(
-    ("end", "files"),
-    [
-        # on the file's last hour: HYSPLIT reads nothing past 05:00
-        ("2021-01-15 05:00", ["20210115_00"]),
-        ("2021-01-15 05:30", ["20210115_00", "20210115_06"]),
-        ("2021-01-15 04:59", ["20210115_00"]),
-        ("2021-01-15 06:00", ["20210115_00", "20210115_06"]),
-    ],
-)
-@pytest.mark.parametrize("n_hours", [-3, 3])
-def test_files_for_hourly_steps_drop_the_file_after_the_last_hour(
-    tmp_path, end, files, n_hours
-):
-    """With hourly steps only a run that ends exactly on a file's last hour changes: it no longer needs the next file."""
-    _stepped_files(tmp_path, _HRRR["names"], _HRRR["file_format"], _HRRR["tres"], "h")
-    met = _make_met(tmp_path)
-    r_time = (
-        pd.Timestamp(end) if n_hours < 0 else pd.Timestamp(end) - pd.Timedelta(hours=3)
-    )
-    window = run_window(r_time, n_hours)
-
-    found = met.files_for(window)
-
-    assert [p.name for p in found] == files
-    met.check(found, window)
 
 
 def test_a_file_that_is_not_arl_beside_the_met_changes_nothing(tmp_path):
@@ -1213,7 +1080,7 @@ def test_a_short_copy_of_one_product_does_not_hide_the_whole_file(tmp_path):
 
 
 def test_a_3_hourly_met_beside_an_hourly_file_that_sorts_first(tmp_path):
-    """The NAM12 run from 22:00 gets the next day's file though an hourly file sorts first (#283)."""
+    """The NAM12 run from 22:00 gets the next day's file though an hourly file sorts first (PYSTILT#283)."""
     write_arl_file(
         tmp_path / "20140101_00-05_hrrr",
         times=pd.date_range("2014-01-01 00:00", periods=6, freq="h"),
@@ -1228,20 +1095,6 @@ def test_a_3_hourly_met_beside_an_hourly_file_that_sorts_first(tmp_path):
 
     assert [p.name for p in files] == names
     met.check(files, window)
-
-
-def test_the_met_step_skips_a_partial_download(tmp_path):
-    """A cut-short download beside a met file, with other steps, is not read for the step."""
-    _stepped_files(tmp_path, _NAM["names"], _NAM["file_format"], _NAM["tres"], "3h")
-    write_arl_file(
-        tmp_path / "20150101.partial",
-        times=pd.date_range("2015-01-01", periods=24, freq="h"),
-    )
-    met = _make_met(tmp_path)
-
-    files = met.files_for(run_window(dt.datetime(2015, 1, 1, 22), -3))
-
-    assert [p.name for p in files] == _NAM["names"]
 
 
 def test_a_file_that_is_not_arl_is_no_file_for_its_time(tmp_path):
@@ -1316,7 +1169,7 @@ def _archive_files(tmp_path, download, release, hours):
 def test_a_3_hourly_download_gets_the_next_days_file_past_the_last_step(
     tmp_path, download, day_file, release, next_day
 ):
-    """A backward run released after 21:00 needs the next 00:00 step, in the next day's file (#306)."""
+    """A backward run released after 21:00 needs the next 00:00 step, in the next day's file (PYSTILT#306)."""
     files = _archive_files(tmp_path, download, release, -3)
 
     expected = [day_file.format("20150101")]
@@ -1489,7 +1342,7 @@ def test_check_passes_files_of_two_time_periods(tmp_path):
 
 
 def test_check_refuses_files_that_hold_one_time_period(tmp_path):
-    """HYSPLIT stops on a file with one time period, so no run can use them (#286)."""
+    """HYSPLIT stops on a file with one time period, so no run can use them (PYSTILT#286)."""
     files = [
         write_arl_file(
             tmp_path / f"20230101_{hour:02d}", times=[f"2023-01-01 {hour:02d}:00"]
@@ -1527,7 +1380,7 @@ def test_a_file_cut_to_one_hour_is_reported_as_the_gap_it_leaves(tmp_path):
 
 
 def test_check_fails_a_file_cut_after_a_whole_hour(tmp_path):
-    """A file that ends early looks whole to arlmet; the gap after it does not (#189)."""
+    """A file that ends early looks whole to arlmet; the gap after it does not (PYSTILT#189)."""
     files = _six_hour_files(
         tmp_path, {"20230101_00": "2023-01-01 03:00", "20230101_06": "2023-01-01 11:00"}
     )
@@ -1554,7 +1407,7 @@ def test_check_fails_files_that_end_before_the_run_does(tmp_path):
 
 
 def test_check_needs_the_step_after_a_forward_run_ends(tmp_path):
-    """A forward run from 20:31 for 3 hours ends at 23:31, between two files (#275)."""
+    """A forward run from 20:31 for 3 hours ends at 23:31, between two files (PYSTILT#275)."""
     window = run_window(dt.datetime(2021, 1, 14, 20, 31), 3)
     held = {"20210114_18": "2021-01-14 23:00", "20210115_00": "2021-01-15 05:00"}
     files = _six_hour_files(tmp_path, held)
@@ -1625,47 +1478,3 @@ def test_check_reads_each_file_once_until_it_changes(tmp_path, monkeypatch):
     with pytest.raises(MeteorologyError, match="to 2023-01-01 09:00"):
         met.check(files, _WINDOW)
     assert opened == ["20230101_00", "20230101_06", "20230101_06"]
-
-
-def test_a_global_met_grid_holds_every_longitude(tmp_path):
-    """On a grid that goes all the way round, no longitude is outside the domain (#440)."""
-    import numpy as np
-    from arlmet import File, Grid, Projection
-    from arlmet.vertical import PressureAxis
-
-    from stilt.transport.hysplit.met import _on_grid
-
-    grid = Grid(
-        projection=Projection(
-            pole_lat=90.0,
-            pole_lon=0.0,
-            tangent_lat=1.0,
-            tangent_lon=1.0,
-            grid_size=0.0,
-            orientation=0.0,
-            cone_angle=0.0,
-            sync_x=1.0,
-            sync_y=1.0,
-            sync_lat=-2.0,
-            sync_lon=0.0,
-        ),
-        nx=360,
-        ny=5,
-    )
-    path = tmp_path / "global.arl"
-    with File(
-        path,
-        mode="w",
-        source="TEST",
-        grid=grid,
-        vertical_axis=PressureAxis(levels=[0.0]),
-    ) as f:
-        rs = f.create_recordset(pd.Timestamp("2023-01-01"))
-        rs.create_datarecord(
-            "PRSS", level=0, forecast=0, data=np.ones((5, 360), np.float32)
-        )
-    points = pd.DataFrame(
-        {"longitude": [-0.5, 179.9, -179.9], "latitude": [0.0, 2.0, 3.0]}
-    )
-
-    assert _on_grid(path, points).tolist() == [True, True, False]

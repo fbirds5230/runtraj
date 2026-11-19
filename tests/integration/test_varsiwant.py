@@ -1,5 +1,5 @@
 """
-Every name ``varsiwant`` accepts is one STILT-R's hycs_std (5.1.0) reads (#324).
+Every name ``varsiwant`` accepts is one STILT-R's hycs_std (5.1.0) reads (PYSTILT#324).
 
 ``hycs_std`` stops at the first ``varsiwant`` name it does not know, before it
 writes a particle, so a name the config allowed but HYSPLIT did not read gave a
@@ -11,10 +11,10 @@ from __future__ import annotations
 import datetime as dt
 from typing import get_args
 
-from stilt.releases import PointRelease
-from stilt.transport import run_model
-from stilt.transport.hysplit import HysplitConfig
-from stilt.transport.hysplit.driver import PARTICLE_COLUMNS
+from runtraj.releases import PointRelease
+from runtraj.transport import run_model
+from runtraj.transport.hysplit import HysplitConfig
+from runtraj.transport.hysplit.driver import PARTICLE_COLUMNS
 
 from ..conftest import integration
 from .conftest import reference_met

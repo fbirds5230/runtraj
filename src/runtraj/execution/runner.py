@@ -3,9 +3,9 @@ Running a project: finding the releases with missing results and handing them to
 
 With ``backend: slurm``, :func:`submit` writes a job array script into
 ``_slurm/<stamp>/`` in the project and submits it with ``sbatch``. Each task
-of the array runs ``stilt run --task``, so a task is a command line that can
+of the array runs ``runtraj run --task``, so a task is a command line that can
 be read, and run again, by hand. When a met downloads, a job that runs
-``stilt fetch`` goes first and the array waits for it.
+``runtraj fetch`` goes first and the array waits for it.
 """
 
 from __future__ import annotations
@@ -30,15 +30,15 @@ from uuid import uuid4
 import pyarrow as pa
 import yaml
 
-from stilt._paths import absolute, write_parquet
-from stilt._transient import is_transient
-from stilt.execution.config import ExecutionConfig, FetchConfig
-from stilt.fetch import downloads, fetch_project
+from runtraj._paths import absolute, write_parquet
+from runtraj._transient import is_transient
+from runtraj.execution.config import ExecutionConfig, FetchConfig
+from runtraj.fetch import downloads, fetch_project
 
 if TYPE_CHECKING:
     import pandas as pd
 
-    from stilt.project import Project
+    from runtraj.project import Project
 
 logger = logging.getLogger(__name__)
 
@@ -115,18 +115,18 @@ def resolve_compute_root(
     """
     Return the compute root of *project*: the directory its workdirs are made in.
 
-    That is *compute_root* when given, else the ``PYSTILT_COMPUTE_ROOT``
+    That is *compute_root* when given, else the ``RUNTRAJ_COMPUTE_ROOT``
     environment variable when it is set and not empty, else
-    ``$TMPDIR/pystilt/<project name>``. The path is absolute and resolved, so
+    ``$TMPDIR/runtraj/<project name>``. The path is absolute and resolved, so
     a worker handed it gets the same directory. Projects can share one
     compute root, since each run gets a new workdir in it.
     """
     if compute_root is None:
-        compute_root = os.environ.get("PYSTILT_COMPUTE_ROOT") or None
+        compute_root = os.environ.get("RUNTRAJ_COMPUTE_ROOT") or None
     if compute_root is not None:
         return absolute(compute_root)
     tmp_root = os.environ.get("TMPDIR") or tempfile.gettempdir()
-    return absolute(Path(tmp_root) / "pystilt" / project.name)
+    return absolute(Path(tmp_root) / "runtraj" / project.name)
 
 
 def pending(
@@ -140,7 +140,7 @@ def pending(
     Return the ids of the releases a run would run, each once, in project order.
 
     A driver that starts tasks itself writes these to the ``releases.txt``
-    each task reads (``stilt run --releases``).
+    each task reads (``runtraj run --releases``).
 
     Parameters
     ----------
@@ -192,7 +192,7 @@ def _to_fetch(
     Return the simulations of *release_ids* whose met files are got once before they run, or ``None``.
 
     ``None`` when the backend's ``fetch`` is off, when no met of theirs
-    downloads (:func:`stilt.fetch.downloads`), or when none of them runs
+    downloads (:func:`runtraj.fetch.downloads`), or when none of them runs
     its transport model: those whose particles are missing, or every one
     when not *skip_existing*, since such a run makes the particles again.
     The output is listed only when a met downloads.
@@ -212,7 +212,7 @@ def _fetch_here(project: Project, unrun: pd.DataFrame) -> None:
     Get the met files of the *unrun* simulations in this process, before a local run's workers start.
 
     A file that could not be had, or a download that failed and that a
-    retry may get past (:func:`stilt._transient.is_transient`), is only
+    retry may get past (:func:`runtraj._transient.is_transient`), is only
     logged: each run then tries again, and fails as it would have without
     the fetch. Any other error is raised.
     """
@@ -261,7 +261,7 @@ def run(
     footprint of every variant that has one. With ``backend: local`` the
     releases run in this process (``cpus`` at a time); with ``cpus`` above
     1 and a met that downloads, the met files are got first
-    (:meth:`stilt.Project.fetch`, unless ``execution.local.fetch`` is ``false``),
+    (:meth:`runtraj.Project.fetch`, unless ``execution.local.fetch`` is ``false``),
     so the workers do not download the same file at once. With
     ``backend: slurm`` they are submitted as one job array (:func:`submit`)
     and this waits for it. When some simulations look unfinished after the
@@ -296,7 +296,7 @@ def run(
     Returns
     -------
     pandas.DataFrame
-        The status table (:meth:`stilt.Project.status`) of the
+        The status table (:meth:`runtraj.Project.status`) of the
         simulations that ran: ``state`` says which are complete, which
         failed and why, and which did not finish.
 
@@ -379,13 +379,13 @@ def submit(
     holds their checked rows from ``releases.csv``, ``execution.yaml``
     holds the execution settings, ``job.sh`` is the script given to
     ``sbatch``, and ``<task>.log`` is each task's log. Task ``i`` runs
-    ``stilt run <project> --releases releases.parquet --task i/N``, so it
+    ``runtraj run <project> --releases releases.parquet --task i/N``, so it
     does not read and check all of ``releases.csv`` again. A task
     that is preempted or nears its time limit requeues itself and skips
     what it finished (see :func:`run`).
 
     When a met the unfinished simulations use downloads its files, a
-    fetch job goes first: one task that runs ``stilt fetch <project>
+    fetch job goes first: one task that runs ``runtraj fetch <project>
     --releases releases.parquet`` (:func:`fetch_script`), written to
     ``fetch.sh`` with its log in ``fetch.log``, with the resources of
     ``execution.slurm.fetch``. The array waits for it to end
@@ -465,7 +465,7 @@ def job_script(
     """
     Return the ``sbatch`` script of a job array whose tasks each run a share of the releases.
 
-    Task ``i`` runs ``stilt run <project> --releases <folder>/releases.parquet
+    Task ``i`` runs ``runtraj run <project> --releases <folder>/releases.parquet
     --task i/n_tasks --execution <folder>/execution.yaml --cpus <cpus>`` with
     the Python that called this: a task runs its share here, ``cpus``
     releases at once. The ``#SBATCH`` lines come from *execution*'s
@@ -479,7 +479,7 @@ def job_script(
     """
     slurm = execution.slurm
     options: dict[str, Any] = {
-        "job-name": f"pystilt-{_project_slug(project.directory)}",
+        "job-name": f"runtraj-{_project_slug(project.directory)}",
         "array": f"0-{n_tasks - 1}"
         + (f"%{slurm.array_parallelism}" if slurm.array_parallelism else ""),
         "cpus-per-task": slurm.cpus,
@@ -500,7 +500,7 @@ def job_script(
     command = [
         sys.executable,
         "-m",
-        "stilt",
+        "runtraj",
         "run",
         str(project.directory),
         "--releases",
@@ -560,7 +560,7 @@ def fetch_script(
     """
     Return the ``sbatch`` script of the job that gets the met files before a job array.
 
-    It runs ``stilt fetch <project> --releases <folder>/releases.parquet``
+    It runs ``runtraj fetch <project> --releases <folder>/releases.parquet``
     (with ``--no-skip`` when not *skip_existing*) with the Python that
     called this, as one task, after the ``setup`` commands. Its
     ``partition``, ``account``, ``qos``, ``time`` and ``mem`` are those of
@@ -572,7 +572,7 @@ def fetch_script(
     slurm = execution.slurm
     fetch = slurm.fetch or FetchConfig()
     options: dict[str, Any] = {
-        "job-name": f"pystilt-fetch-{_project_slug(project.directory)}",
+        "job-name": f"runtraj-fetch-{_project_slug(project.directory)}",
         "time": fetch.time or slurm.time,
         "mem": fetch.mem or slurm.mem,
         "partition": fetch.partition or slurm.partition,
@@ -584,7 +584,7 @@ def fetch_script(
     command = [
         sys.executable,
         "-m",
-        "stilt",
+        "runtraj",
         "fetch",
         str(project.directory),
         "--releases",

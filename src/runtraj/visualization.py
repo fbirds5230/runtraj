@@ -1,8 +1,5 @@
 """
 Plotting for particles, releases, and projects.
-
-The plots of a footprint and of a simulation, which draw the footprint, are
-STILT's: :mod:`stilt.stilt_visualization`.
 """
 
 from __future__ import annotations
@@ -18,11 +15,11 @@ from matplotlib.figure import Figure
 if TYPE_CHECKING:
     from cartopy.io.img_tiles import GoogleTiles
 
-    from stilt.project import Project
-    from stilt.releases import Release
-    from stilt.spatial import Bounds
+    from runtraj.project import Project
+    from runtraj.releases import Release
+    from runtraj.spatial import Bounds
 
-from stilt.releases import ColumnRelease, MultiPointRelease, Release
+from runtraj.releases import ColumnRelease, MultiPointRelease, Release
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -172,7 +169,7 @@ def _legend(ax: Axes) -> None:
 
 
 class ParticlesPlotAccessor:
-    """Plotting methods of a particle table, as ``particles.stilt.plot``."""
+    """Plotting methods of a particle table, as ``particles.runtraj.plot``."""
 
     def __init__(self, particles: pd.DataFrame) -> None:
         self._particles = particles
@@ -234,8 +231,7 @@ class ParticlesPlotAccessor:
         if color_by == "foot" and "foot" not in p.columns:
             raise ValueError(
                 "The particles have no 'foot' column to color by: the transport "
-                "model wrote none. stilt.footprint.footprint_particles adds "
-                "the one the footprint uses."
+                "model wrote none."
             )
         c: np.ndarray = p[color_by].to_numpy(dtype=float)
         cbar_label = _color_labels[color_by]
@@ -266,7 +262,7 @@ class ParticlesPlotAccessor:
 
 
 class ReleasePlotAccessor:
-    """Plotting methods of :class:`stilt.Release`, as ``release.plot``."""
+    """Plotting methods of :class:`runtraj.Release`, as ``release.plot``."""
 
     def __init__(self, release: Release) -> None:
         self._release = release
@@ -292,7 +288,7 @@ class ReleasePlotAccessor:
             Axes to plot on. By default a new map is made, with cartopy when
             it is installed.
         domain : Bounds, optional
-            Outline a domain, such as a footprint :class:`~stilt.Grid`, with
+            Outline a domain, such as a footprint :class:`~runtraj.Grid`, with
             a dashed line, and fit the map to it.
         met_bounds : Bounds, optional
             Outline the meteorology domain with a dotted blue line.
@@ -382,7 +378,7 @@ class ReleasePlotAccessor:
 
 
 class ProjectPlotAccessor:
-    """Plotting methods of :class:`stilt.Project`, as ``project.plot``."""
+    """Plotting methods of :class:`runtraj.Project`, as ``project.plot``."""
 
     def __init__(self, project: Project):
         self._project = project

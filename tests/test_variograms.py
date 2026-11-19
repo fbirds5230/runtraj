@@ -1,13 +1,13 @@
-"""Tests for the wind-error statistics in stilt.meteorology: variograms and their fits."""
+"""Tests for the wind-error statistics in runtraj.meteorology: variograms and their fits."""
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from stilt.meteorology import VariogramFit, fit_variogram, variogram
-from stilt.spatial import haversine_km
-from stilt.transport.hysplit import HysplitConfig
-from stilt.transport.hysplit.driver import winderrtf
+from runtraj.meteorology import VariogramFit, fit_variogram, variogram
+from runtraj.spatial import haversine_km
+from runtraj.transport.hysplit import HysplitConfig
+from runtraj.transport.hysplit.driver import winderrtf
 
 
 def _ar1(n: int, sigma: float, length: float, step: float, rng) -> np.ndarray:

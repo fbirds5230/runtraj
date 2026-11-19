@@ -2,10 +2,10 @@
 Rasters and coordinate systems: bounding boxes, grids, and CRS helpers.
 
 :class:`Bounds` is a longitude/latitude box, such as the crop box of a met.
-:class:`Grid` is a rectilinear raster: the grid a footprint is computed on,
-and the grid a flux field is put on to be compared with it. This module
-does not need shapely, so any part of PYSTILT can use it. Polygons
-(``Mesh``, ``Zones``), which do, are in :mod:`stilt.footprint.targets`.
+:class:`Grid` is a rectilinear raster: the grid a stage sums particles onto
+(a footprint's, in PYSTILT), and the grid a field is put on to be compared
+with it. This module does not need shapely, so any part of runtraj can use
+it.
 """
 
 from __future__ import annotations
@@ -258,8 +258,8 @@ class Bounds(BaseModel):
 
         Examples
         --------
-        >>> import stilt
-        >>> utah = stilt.Bounds(xmin=-114, xmax=-109, ymin=37, ymax=42)
+        >>> import runtraj
+        >>> utah = runtraj.Bounds(xmin=-114, xmax=-109, ymin=37, ymax=42)
         >>> bool(utah.contains(-111.9, 40.8))
         True
         >>> bool(utah.contains(-111.9, 45.0))
@@ -267,7 +267,7 @@ class Bounds(BaseModel):
 
         A box may cross the dateline, and ``-175`` and ``185`` are one meridian:
 
-        >>> pacific = stilt.Bounds(xmin=170, xmax=-170, ymin=-10, ymax=10)
+        >>> pacific = runtraj.Bounds(xmin=170, xmax=-170, ymin=-10, ymax=10)
         >>> pacific.contains([175, -175, 185, 0], 0).tolist()
         [True, True, True, False]
         """
@@ -472,7 +472,7 @@ class Grid(Bounds):
         projected) matching the footprint, and a ``crs`` grid-mapping
         variable. Use it to regrid a flux field onto the footprint grid, or
         with other tools that read CF grids. To sum a footprint onto this
-        grid, pass the grid itself to ``foot.stilt.aggregate``. Projected
+        grid, pass the grid itself to ``foot.runtraj.aggregate``. Projected
         grids need ``pyproj``.
         """
         import xarray as xr
@@ -493,7 +493,7 @@ def is_longlat(crs: str) -> bool:
     """
     Return whether ``crs`` is geographic (longitude/latitude degrees).
 
-    This is the one test PYSTILT uses, for grids, meshes, and plots alike.
+    This is the one test runtraj uses, for grids, meshes, and plots alike.
     PROJ strings are read by eye; other forms, such as ``EPSG:4326``, by
     pyproj.
     """

@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from stilt.releases import MultiPointRelease, read_releases
+from runtraj.releases import MultiPointRelease, read_releases
 
 
 def test_mixed_int_and_str_group_does_not_split_a_release(tmp_path):

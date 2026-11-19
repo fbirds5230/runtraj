@@ -1,4 +1,4 @@
-"""Tests for stilt.releases."""
+"""Tests for runtraj.releases."""
 
 import datetime as dt
 import hashlib
@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from stilt.releases import (
+from runtraj.releases import (
     ColumnRelease,
     MultiPointRelease,
     PointRelease,
@@ -17,8 +17,8 @@ from stilt.releases import (
     read_releases,
     write_releases,
 )
-from stilt.releases.models import _format_coord
-from stilt.releases.table import releases_to_csv
+from runtraj.releases.models import _format_coord
+from runtraj.releases.table import releases_to_csv
 
 # ---------------------------------------------------------------------------
 # _format_coord
@@ -91,7 +91,7 @@ def test_location_id_column_integer_coords():
 
 
 def test_columns_that_differ_only_in_top_get_different_ids():
-    """Two columns at one place and time once shared an id and result files (#105)."""
+    """Two columns at one place and time once shared an id and result files (PYSTILT#105)."""
     low, high = (
         ColumnRelease(
             time="202101150600", longitude=-112, latitude=40.5, bottom=0, top=top
@@ -103,7 +103,7 @@ def test_columns_that_differ_only_in_top_get_different_ids():
 
 
 # ---------------------------------------------------------------------------
-# location_id - altitude reference (#105)
+# location_id - altitude reference (PYSTILT#105)
 # ---------------------------------------------------------------------------
 
 
@@ -145,7 +145,7 @@ def test_columns_that_differ_only_in_top_get_different_ids():
     ids=["point", "column", "multipoint"],
 )
 def test_msl_and_agl_releases_get_different_ids(make, agl_id):
-    """Releases that differ only in altitude reference once shared an id (#105)."""
+    """Releases that differ only in altitude reference once shared an id (PYSTILT#105)."""
     agl, msl = make("agl"), make("msl")
     assert msl.id == agl.id + "msl"
     assert not agl.id.endswith("msl")
@@ -326,7 +326,7 @@ def test_release_time_aware_input_normalizes_to_naive_utc():
 
 @pytest.mark.parametrize("text", ["05/07/2023 18:00", "07/15/2023 18:00", "now"])
 def test_release_time_text_that_is_not_iso_or_compact_is_refused(text):
-    """05/07/2023 was read as 7 May, and refused only when the day was above 12 (#440)."""
+    """05/07/2023 was read as 7 May, and refused only when the day was above 12 (PYSTILT#440)."""
     with pytest.raises(ValueError, match="is not ISO 8601"):
         PointRelease(time=text, longitude=-111.85, latitude=40.77, altitude=5.0)
 
@@ -470,7 +470,7 @@ def test_latitude_out_of_range_raises():
     ],
 )
 def test_a_point_with_a_nan_or_infinite_coordinate_is_refused(field, value, message):
-    """A NaN passed the range checks and failed later at ``.id``, naming no field (#440)."""
+    """A NaN passed the range checks and failed later at ``.id``, naming no field (PYSTILT#440)."""
     point = {"longitude": -111.85, "latitude": 40.77, "altitude": 5.0}
     with pytest.raises(ValueError, match=message):
         PointRelease(time="202301011200", **{**point, field: value})
@@ -863,7 +863,7 @@ def test_read_releases_keeps_extra_columns_as_attrs(tmp_path):
 
 
 def test_release_attrs_round_trip_through_csv(tmp_path, point_release, column_release):
-    from stilt.releases.table import append_releases_csv, releases_to_csv
+    from runtraj.releases.table import append_releases_csv, releases_to_csv
 
     labelled = point_release.model_copy(update={"attrs": {"scene": "A"}})
     text = releases_to_csv([labelled, column_release])
@@ -950,7 +950,7 @@ def test_from_dict_needs_the_kind_key():
 def test_parse_release_id_splits_time_and_location(
     point_release, column_release, multipoint_release
 ):
-    from stilt.releases import parse_release_id
+    from runtraj.releases import parse_release_id
 
     for r in (point_release, column_release, multipoint_release):
         assert parse_release_id(r.id) == (r.time, r.location_id)
@@ -960,7 +960,7 @@ def test_parse_release_id_splits_time_and_location(
 
 
 # ---------------------------------------------------------------------------
-# Multipoint ids and altitude (#50)
+# Multipoint ids and altitude (PYSTILT#50)
 # ---------------------------------------------------------------------------
 
 
@@ -996,7 +996,7 @@ def test_multipoint_id_of_whole_metre_heights_is_unchanged():
 
 def test_releases_that_share_an_id_are_refused():
     """Two releases closer than the id resolves would overwrite each other."""
-    from stilt.releases.table import check_distinct_ids
+    from runtraj.releases.table import check_distinct_ids
 
     a, b = _multi([10.001, 500.0]), _multi([10.004, 500.0])
     assert a != b and a.id == b.id
@@ -1017,7 +1017,7 @@ def test_releases_that_share_an_id_are_refused():
 def test_frame_has_a_row_per_release_point(
     point_release, column_release, multipoint_release
 ):
-    from stilt.releases import releases_from_frame, releases_to_frame
+    from runtraj.releases import releases_from_frame, releases_to_frame
 
     releases = [
         point_release.model_copy(update={"attrs": {"site": "WBB"}}),
@@ -1045,7 +1045,7 @@ def test_frame_has_a_row_per_release_point(
 
 
 def test_frame_accepts_the_alternate_column_names():
-    from stilt.releases import releases_from_frame
+    from runtraj.releases import releases_from_frame
 
     frame = pd.DataFrame(
         {
@@ -1064,13 +1064,13 @@ def test_frame_accepts_the_alternate_column_names():
 
 
 # ---------------------------------------------------------------------------
-# Appending keeps the altitude reference (#51)
+# Appending keeps the altitude reference (PYSTILT#51)
 # ---------------------------------------------------------------------------
 
 
 def test_append_msl_release_to_plain_altitude_file_keeps_its_reference():
     """An MSL release appended to a file with no reference column read back as AGL."""
-    from stilt.releases.table import append_releases_csv
+    from runtraj.releases.table import append_releases_csv
 
     text = "time,longitude,latitude,altitude\n2023-01-01 12:00:00,-111.85,40.77,5\n"
     msl = PointRelease(
@@ -1091,7 +1091,7 @@ def test_append_msl_release_to_plain_altitude_file_keeps_its_reference():
 
 
 def test_append_agl_release_leaves_a_plain_file_without_the_column():
-    from stilt.releases.table import append_releases_csv
+    from runtraj.releases.table import append_releases_csv
 
     text = "time,lon,lat,z,site\n2023-01-01 12:00:00,-111.85,40.77,5,WBB\n"
     agl = PointRelease(
@@ -1110,7 +1110,7 @@ def test_append_agl_release_leaves_a_plain_file_without_the_column():
 
 
 def test_append_to_a_zagl_file_still_refuses_an_msl_release():
-    from stilt.releases.table import append_releases_csv
+    from runtraj.releases.table import append_releases_csv
 
     text = "time,long,lati,zagl\n2023-01-01 12:00:00,-111.85,40.77,5\n"
     msl = PointRelease(
@@ -1133,7 +1133,7 @@ def test_release_rows_ids_match_the_releases(
     point_release, column_release, multipoint_release
 ):
     """The table's ids come from the same rules as release.id, for every kind."""
-    from stilt.releases.table import (
+    from runtraj.releases.table import (
         release_rows,
         releases_from_rows,
         releases_to_frame,
@@ -1175,7 +1175,7 @@ def test_release_rows_ids_match_the_releases(
 
 def test_release_rows_column_id_does_not_depend_on_row_order():
     """A column listed top row first gets the id its release has."""
-    from stilt.releases.table import release_rows
+    from runtraj.releases.table import release_rows
 
     frame = pd.DataFrame(
         {
@@ -1191,7 +1191,7 @@ def test_release_rows_column_id_does_not_depend_on_row_order():
 
 
 def test_release_rows_checks_every_row_without_building(tmp_path):
-    from stilt.releases.table import release_rows
+    from runtraj.releases.table import release_rows
 
     def table(**columns):
         base = {
@@ -1222,7 +1222,7 @@ def test_release_rows_checks_every_row_without_building(tmp_path):
 
 
 def test_a_release_listed_twice_is_kept_once(point_release):
-    from stilt.releases.table import release_rows, releases_to_frame
+    from runtraj.releases.table import release_rows, releases_to_frame
 
     rows = release_rows(releases_to_frame([point_release, point_release]))
 
@@ -1230,10 +1230,10 @@ def test_a_release_listed_twice_is_kept_once(point_release):
 
 
 def test_many_releases_listed_twice_are_checked_quickly():
-    """Each repeated id was built through a mask over the whole table: 31 s here (#191)."""
+    """Each repeated id was built through a mask over the whole table: 31 s here (PYSTILT#191)."""
     import time
 
-    from stilt.releases.table import release_rows
+    from runtraj.releases.table import release_rows
 
     once = pd.DataFrame(
         {
@@ -1250,7 +1250,7 @@ def test_many_releases_listed_twice_are_checked_quickly():
 
 
 def test_a_repeated_id_among_many_still_names_two_different_releases():
-    from stilt.releases.table import release_rows, releases_to_frame
+    from runtraj.releases.table import release_rows, releases_to_frame
 
     a, b = _multi([10.001, 500.0]), _multi([10.004, 500.0])
     points = [
@@ -1272,8 +1272,8 @@ def test_releases_from_checked_rows_are_not_checked_again(
     monkeypatch, point_release, column_release, multipoint_release
 ):
     """The table runs a release's checks once; building from its rows skips them."""
-    import stilt.releases.models as models
-    from stilt.releases.table import (
+    import runtraj.releases.models as models
+    from runtraj.releases.table import (
         release_rows,
         releases_from_rows,
         releases_to_frame,
@@ -1298,7 +1298,7 @@ def test_releases_from_checked_rows_are_not_checked_again(
 
 
 def _multipoint_location_as_first_written(lons, lats, alts, altitude_ref):
-    """The multipoint id as it was written before #148, kept to check the faster one."""
+    """The multipoint id as it was written before PYSTILT#148, kept to check the faster one."""
 
     def hash_altitude(alt):
         rounded = round(alt, 2)
@@ -1318,7 +1318,7 @@ def _multipoint_location_as_first_written(lons, lats, alts, altitude_ref):
 
 def test_multipoint_ids_are_the_same_as_first_written():
     """Ids name result files, so the faster id must give the same bytes."""
-    from stilt.releases.models import _multipoint_location, _multipoint_locations
+    from runtraj.releases.models import _multipoint_location, _multipoint_locations
 
     rng = np.random.default_rng(148)
     groups, lons, lats, alts, refs = [], [], [], [], []
@@ -1354,7 +1354,7 @@ def test_multipoint_ids_are_the_same_as_first_written():
 
 @pytest.mark.parametrize("name", ["alt_ref", "height_reference", "ref"])
 def test_a_misnamed_altitude_ref_column_is_refused(name):
-    """Kept as a label, it left 1500 m above sea level as 1500 m above ground (#440)."""
+    """Kept as a label, it left 1500 m above sea level as 1500 m above ground (PYSTILT#440)."""
     text = f"time,lon,lat,z,{name}\n2023-07-15 18:00,-111.8,40.7,1500,MSL\n"
     with pytest.raises(ValueError, match=f"'{name}'.*Did you mean 'altitude_ref'"):
         read_releases(io.StringIO(text))
@@ -1368,7 +1368,7 @@ def test_a_label_column_that_is_not_a_reference_is_kept():
 
 
 def test_a_table_of_numeric_times_is_refused():
-    from stilt.releases.table import release_rows
+    from runtraj.releases.table import release_rows
 
     frame = pd.DataFrame(
         {
@@ -1383,7 +1383,7 @@ def test_a_table_of_numeric_times_is_refused():
 
 
 def test_a_table_of_datetimes_with_a_missing_one_names_the_row():
-    from stilt.releases.table import release_rows
+    from runtraj.releases.table import release_rows
 
     frame = pd.DataFrame(
         {

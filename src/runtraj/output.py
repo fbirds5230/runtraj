@@ -31,10 +31,8 @@ beside the old one instead of overwriting it. ``pyarrow.dataset``, DuckDB,
 polars, and R's arrow read ``settings`` and ``date`` as columns of the whole
 tree. Particles are one Parquet file per release. A stage writes its own
 file per release, with the extension it declares
-(:attr:`stilt.stages.Stage.suffix`), at the path this module gives it, and
-this module never looks inside one. The footprint's are sparse tables of
-the non-zero cells; an empty footprint is a file with no rows, marked
-``stilt:empty`` in its metadata.
+(:attr:`runtraj.stages.Stage.suffix`), at the path this module gives it, and
+this module never looks inside one.
 
 Logs, failure records, and kept workdirs are in trees of their own
 (``logs/``, ``scratch/``) rather than beside the results, so that each
@@ -72,25 +70,25 @@ import pyarrow.dataset as pads
 import pyarrow.parquet as pq
 import yaml
 
-from stilt._paths import atomic_path, location, readable
-from stilt.identity import (
+from runtraj._paths import atomic_path, location, readable
+from runtraj.identity import (
     canonical,
     file_stamp,
-    pystilt_version,
     read_run_settings,
+    runtraj_version,
     settings_hash,
     stage_hash,
 )
-from stilt.particles import write_particles
-from stilt.particles.table import OLD_FILE
-from stilt.releases import Release, parse_release_id
-from stilt.stages import get_stage, reads
+from runtraj.particles import write_particles
+from runtraj.particles.table import OLD_FILE
+from runtraj.releases import Release, parse_release_id
+from runtraj.stages import get_stage, reads
 
 if TYPE_CHECKING:
     from upath import UPath
 
-    from stilt._paths import Location
-    from stilt.config import Variant
+    from runtraj._paths import Location
+    from runtraj.config import Variant
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +113,7 @@ def _date_dir(release_id: str) -> str:
 
     The folder is the id's first eight characters, ``YYYYMMDD``, so a listing
     of hundreds of thousands of ids reads each day once and does not parse
-    each id's time. An id that :func:`stilt.releases.parse_release_id`
+    each id's time. An id that :func:`runtraj.releases.parse_release_id`
     rejects raises its error.
     """
     rid = str(release_id)
@@ -224,13 +222,13 @@ def _write_settings(path: Location, record: dict[str, Any]) -> None:
 @functools.cache
 def _versions(stage_class: str) -> dict[str, str]:
     """
-    Return the versions a stage folder records: PYSTILT's, and the package of the stage's class.
+    Return the versions a stage folder records: runtraj's, and the package of the stage's class.
 
     They say what made the folder and are not part of its hash.
     """
     from importlib.metadata import PackageNotFoundError, packages_distributions, version
 
-    versions = {"pystilt": pystilt_version()}
+    versions = {"runtraj": runtraj_version()}
     package = stage_class.partition(".")[0]
     for distribution in packages_distributions().get(package, ()):
         try:
@@ -247,7 +245,7 @@ def _read_stage_settings(
     Return the settings a stage folder's ``_settings.yaml`` records, read through the stage's current config class.
 
     The class reads the record and the stage writes it again
-    (:meth:`stilt.stages.Stage.settings`), so a setting added since the
+    (:meth:`runtraj.stages.Stage.settings`), so a setting added since the
     folder was written, with a default, still matches. A record that cannot
     be read here is returned as written, with a warning naming *source*: a
     stage that is not installed, or settings its class no longer takes, as
@@ -459,7 +457,7 @@ class Output:
 
         The name is the ``settings=`` value. The hash is of the folder's
         stored settings read back through the current config classes
-        (:mod:`stilt.identity`), so a setting added since the folder was
+        (:mod:`runtraj.identity`), so a setting added since the folder was
         written, with a default, still matches.
         """
         _check_kind(kind)
@@ -693,7 +691,7 @@ class Output:
 
         A stage's record names the stage and its class, the folder and hash
         of each thing its files are made from (the particles, then each
-        stage it reads), the versions of PYSTILT and of the stage's package,
+        stage it reads), the versions of runtraj and of the stage's package,
         and the stage's settings.
 
         Raises
@@ -709,7 +707,7 @@ class Output:
             record: dict[str, Any] = {
                 "name": variant.name,
                 "hash": digest,
-                "pystilt": pystilt_version(),
+                "runtraj": runtraj_version(),
                 "model_version": variant.build.version,
                 "settings": variant.run_settings,
             }
@@ -1082,10 +1080,10 @@ class Output:
         realization: int | None = None,
     ) -> Location:
         """
-        Write a release's particles (:func:`stilt.particles.write_particles`).
+        Write a release's particles (:func:`runtraj.particles.write_particles`).
 
         The file records the run's settings, so it reads alone, and the
-        folder's settings hash, the PYSTILT version, and the realization.
+        folder's settings hash, the runtraj version, and the realization.
 
         Raises
         ------
@@ -1120,7 +1118,7 @@ class Output:
 
         Only the date folders of *release_ids* are listed. A log with no
         particles and no failure record is a run that started and did not
-        finish (``interrupted`` in :meth:`stilt.Project.status`).
+        finish (``interrupted`` in :meth:`runtraj.Project.status`).
         """
         logs = self._found("particles", "logs", variant, realization)
         if logs is None:

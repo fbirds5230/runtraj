@@ -2,8 +2,8 @@
 HYSPLIT's config: every setting that shapes the particles HYSPLIT makes.
 
 :class:`HysplitConfig` holds them. Most are HYSPLIT's own, under HYSPLIT's
-names; a few are used by PYSTILT itself. Which input file each goes to is
-the HYSPLIT driver's business (:mod:`stilt.transport.hysplit.driver`).
+names; a few are used by runtraj itself. Which input file each goes to is
+the HYSPLIT driver's business (:mod:`runtraj.transport.hysplit.driver`).
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from typing import Any, ClassVar, Literal, Self
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from stilt.transport import TransportConfig
+from runtraj.transport import TransportConfig
 
 #: Most hourly ZICONTROL factors HYSPLIT can hold (``ZIPRESC(150)`` in
 #: hymodelc.F); it reads more without a bounds check.
@@ -30,7 +30,7 @@ ZI_ERROR_SETTINGS = ("sigzierr", "tlzierr", "horcorzierr")
 #: read only for HYSPLIT's concentration grids and deposition (``CMASS`` to
 #: ``KWET``), for puffs, which ``INITD=0`` turns off (``CONAGE`` to ``INITD``),
 #: by other HYSPLIT programs (``TOUT`` to ``DZF``), or for dump and restart
-#: files PYSTILT neither supplies nor reads (``NDUMP`` to ``KHINP``), or STILT
+#: files runtraj neither supplies nor reads (``NDUMP`` to ``KHINP``), or STILT
 #: mode overrides them (``DELT`` to ``IDSP``). Some break a run when changed:
 #: ``ICHEM=0`` and ``IDSP=1`` write no particle file, and ``INITD`` 1 or 4
 #: releases puffs.
@@ -119,16 +119,14 @@ class HysplitConfig(TransportConfig):
     or not at all.
 
     ``SETUP.CFG`` entries that cannot change the particles, such as ``delt``
-    and ``ichem``, are not settings: PYSTILT writes the same value in every
+    and ``ichem``, are not settings: runtraj writes the same value in every
     run (:data:`FIXED_SETUP`), and a config that sets one is refused.
 
     The defaults are HYSPLIT's own, in the STILT mode those fixed entries
     set. HYSPLIT decides ``capemin``, ``kblt``, ``kmixd``, ``krand`` and
     ``vscales`` only after it has read ``SETUP.CFG``, from the mode and
     ``numpar``, so they are unset by default: an unset setting is not
-    written, and HYSPLIT chooses. ``n_hours`` has no default. STILT-R runs
-    HYSPLIT with other values for some of them, which a new PYSTILT project
-    writes into its ``config.yaml``.
+    written, and HYSPLIT chooses. ``n_hours`` has no default.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -149,11 +147,11 @@ class HysplitConfig(TransportConfig):
     directory: Path | None = Field(
         None,
         description=(
-            "The HYSPLIT folder as unpacked: PYSTILT runs ``exec/hycs_std`` "
+            "The HYSPLIT folder as unpacked: runtraj runs ``exec/hycs_std`` "
             "under it and reads the data tables (``ASCDATA.CFG``, "
             "``LANDUSE.ASC``, ``ROUGLEN.ASC``, ``TERRAIN.ASC``) from its "
             "``bdyfiles/``. Unset, the first ``hycs_std`` on ``PATH`` runs, with "
-            "the tables of a ``bdyfiles/`` folder beside its folder; PYSTILT "
+            "the tables of a ``bdyfiles/`` folder beside its folder; runtraj "
             "includes neither. The SHA-256 of ``hycs_std`` and of each table is "
             "part of each run's settings, so runs of different builds are kept "
             "apart."
@@ -269,7 +267,7 @@ class HysplitConfig(TransportConfig):
             "every run differs; there are about 5000 possible seeds. 10 to 13 "
             "are modes 0 to 3 with a random initial seed. HYSPLIT does not "
             "check this value and other values silently break the turbulence, "
-            "so PYSTILT rejects them."
+            "so runtraj rejects them."
         ),
     )
     seed: int | None = Field(
@@ -278,7 +276,7 @@ class HysplitConfig(TransportConfig):
             "Random seed for a reproducible run. Different seeds give "
             "different runs. Requires ``krand: 2``. HYSPLIT 5.1.0 (STILT-R's "
             "build) ignores the seed under ``krand`` 4 and 10 to 13, and under 1 uses "
-            "it only for the initial turbulent velocity. PYSTILT writes it to "
+            "it only for the initial turbulent velocity. runtraj writes it to "
             "``SETUP.CFG`` as ``-(abs(seed) + 1)``, because HYSPLIT reseeds its "
             "generator only from a negative value and gives every ``SEED`` of "
             "0 or more the same stream. Realization ``k`` of a variant runs "
@@ -317,7 +315,7 @@ class HysplitConfig(TransportConfig):
             "Interval between particle outputs in ``PARTICLE_STILT.DAT``, in "
             "minutes. 0 writes every time step. HYSPLIT writes no particles "
             "for a negative value, so it is refused. "
-            "Only at 0 does PYSTILT check where the particles of a run that "
+            "Only at 0 does runtraj check where the particles of a run that "
             "stopped early ended, to tell met that ran out from particles that "
             "left the met's domain."
         ),
@@ -354,7 +352,7 @@ class HysplitConfig(TransportConfig):
             "or less is a fraction of the mixed-layer height; a larger value is "
             "meters above ground. A footprint from HYSPLIT's ``foot`` reads it "
             "for the near-field correction too. The footprint stage's "
-            "``footprint_depth`` is the same depth for a ``foot`` PYSTILT "
+            "``footprint_depth`` is the same depth for a ``foot`` runtraj "
             "computes (``pbl_height``)."
         ),
     )
@@ -581,7 +579,7 @@ class HysplitConfig(TransportConfig):
             raise ValueError(
                 f"realizations={n} requires krand=4 or krand=2 with a seed (got "
                 f"krand={self.krand}, seed={self.seed}): under krand=4 HYSPLIT "
-                "seeds each run from the clock; under krand=2 PYSTILT gives each "
+                "seeds each run from the clock; under krand=2 runtraj gives each "
                 "realization its own seed. Any other mode would repeat the same "
                 "perturbation."
             )

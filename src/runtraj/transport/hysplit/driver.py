@@ -3,7 +3,7 @@ Write HYSPLIT's input files, run ``hycs_std``, and read the particles it writes.
 
 :func:`write_inputs` fills a working directory with everything
 ``hycs_std`` reads, and :func:`read_particle_dat` reads the particle file
-it writes. :class:`~stilt.transport.hysplit.HysplitModel` runs the two
+it writes. :class:`~runtraj.transport.hysplit.HysplitModel` runs the two
 around ``hycs_std`` in one directory; call them yourself to look at the
 input files of a run, or to read a ``PARTICLE_STILT.DAT`` from elsewhere.
 """
@@ -21,20 +21,20 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from stilt.exceptions import HYSPLITNotFoundError, SimulationError
-from stilt.transport.hysplit.config import (
+from runtraj.exceptions import HYSPLITNotFoundError, SimulationError
+from runtraj.transport.hysplit.config import (
     FIXED_SETUP,
     WIND_ERROR_SETTINGS,
     ZI_ERROR_SETTINGS,
     HysplitConfig,
 )
-from stilt.transport.hysplit.control import ControlFile
-from stilt.transport.hysplit.failures import (
+from runtraj.transport.hysplit.control import ControlFile
+from runtraj.transport.hysplit.failures import (
     PARTICLE_LIMIT_PHRASE,
     FailureReason,
     failure_in,
 )
-from stilt.transport.hysplit.namelist import NameList
+from runtraj.transport.hysplit.namelist import NameList
 
 if TYPE_CHECKING:
     from arlmet import Grid
@@ -51,7 +51,7 @@ PARTICLE_STILT_FILE = "PARTICLE_STILT.DAT"
 WINDERR_FILE = "WINDERR"
 ZIERR_FILE = "ZIERR"
 ZICONTROL_FILE = "ZICONTROL"
-LOG_FILE = "stilt.log"
+LOG_FILE = "hysplit.log"
 #: HYSPLIT's own file of warnings, such as the met running out.
 WARNING_FILE = "WARNING"
 #: HYSPLIT's own file of progress and error messages.
@@ -62,8 +62,8 @@ MESSAGE_TAIL_LINES = 20
 #: The settings ``CONTROL`` takes; :class:`ControlFile` writes them.
 CONTROL_SETTINGS = ("n_hours", "emisshrs", "w_option", "z_top")
 
-#: Settings PYSTILT uses itself, in no HYSPLIT input file.
-PYSTILT_SETTINGS = ("directory",)
+#: Settings runtraj uses itself, in no HYSPLIT input file.
+RUNTRAJ_SETTINGS = ("directory",)
 
 #: Every setting that is not a ``SETUP.CFG`` entry. All other settings are.
 NOT_IN_SETUP = frozenset(
@@ -72,7 +72,7 @@ NOT_IN_SETUP = frozenset(
         "ziscale",  # ZICONTROL
         *WIND_ERROR_SETTINGS,
         *ZI_ERROR_SETTINGS,
-        *PYSTILT_SETTINGS,
+        *RUNTRAJ_SETTINGS,
     }
 )
 
@@ -81,7 +81,7 @@ def find_hycs_std(directory: str | Path | None = None) -> Path:
     """
     Return the ``hycs_std`` a run uses: ``exec/hycs_std`` under *directory*, else the first on ``PATH``.
 
-    PYSTILT does not include HYSPLIT, so the build is yours. *directory* is
+    runtraj does not include HYSPLIT, so the build is yours. *directory* is
     the HYSPLIT folder as unpacked (``directory`` under ``models: hysplit:``
     in ``config.yaml``), which holds ``exec/`` and ``bdyfiles/``.
 
@@ -109,7 +109,7 @@ def find_hycs_std(directory: str | Path | None = None) -> Path:
     found = shutil.which(HYCS_STD_FILE)
     if found is None:
         raise HYSPLITNotFoundError(
-            f"No {HYCS_STD_FILE} on PATH. PYSTILT does not include HYSPLIT: get "
+            f"No {HYCS_STD_FILE} on PATH. runtraj does not include HYSPLIT: get "
             "it (the installation guide says where), then set directory (under "
             "models: hysplit: in config.yaml) to the HYSPLIT folder, or put the "
             f"folder that holds an executable {HYCS_STD_FILE} on PATH."
@@ -123,7 +123,7 @@ def data_tables(directory: str | Path | None = None) -> dict[str, Path | bytes]:
 
     They come from ``bdyfiles/`` under *directory*, or, without
     *directory*, from a ``bdyfiles/`` folder beside the folder of the
-    ``hycs_std`` on ``PATH``, as HYSPLIT's download lays them out. PYSTILT
+    ``hycs_std`` on ``PATH``, as HYSPLIT's download lays them out. runtraj
     includes none. HYSPLIT's own ``ASCDATA.CFG`` says the tables are in
     ``../bdyfiles/``; a run links them into its workdir, so its
     ``ASCDATA.CFG`` is returned as text with that line, the sixth, set to
@@ -142,7 +142,7 @@ def data_tables(directory: str | Path | None = None) -> dict[str, Path | bytes]:
     missing = [name for name in DATA_TABLES if not (folder / name).is_file()]
     if missing:
         raise HYSPLITNotFoundError(
-            f"No {', '.join(missing)} in {folder}. PYSTILT includes no HYSPLIT "
+            f"No {', '.join(missing)} in {folder}. runtraj includes no HYSPLIT "
             f"data tables: they are in the {BDYFILES_DIR}/ folder of HYSPLIT's "
             f"download, beside its {EXEC_DIR}/. Set directory (under models: "
             "hysplit: in config.yaml) to a HYSPLIT folder that has both."
@@ -166,7 +166,7 @@ def _tables_here(path: Path) -> bytes:
 
 
 #: HYSPLIT's names for the columns the particle table names otherwise
-#: (:data:`stilt.particles.PARTICLE_SCHEMA`); the rest keep HYSPLIT's.
+#: (:data:`runtraj.particles.PARTICLE_SCHEMA`); the rest keep HYSPLIT's.
 PARTICLE_COLUMNS = {"indx": "particle", "time": "age", "long": "lon", "lati": "lat"}
 
 
@@ -190,8 +190,7 @@ def read_particle_dat(path: str | Path, columns: Sequence[str]) -> pd.DataFrame:
     pandas.DataFrame
         One row per particle per output step, as HYSPLIT wrote them. The
         release heights are added after the run
-        (:func:`stilt.transport.run_model`), and the near-field correction
-        when a footprint is made (:func:`stilt.calc_footprint`).
+        (:func:`runtraj.transport.run_model`).
 
     Raises
     ------
@@ -283,7 +282,7 @@ def check_release(
     HYSPLIT fills the locations in order and stops at ``MAXPAR``, writing
     ``exceeding puff limit`` to its ``WARNING`` file, so the last
     locations get fewer particles or none. From one location that is
-    harmless (:data:`~stilt.transport.hysplit.failures.PARTICLE_LIMIT_PHRASE`).
+    harmless (:data:`~runtraj.transport.hysplit.failures.PARTICLE_LIMIT_PHRASE`).
 
     Raises
     ------
@@ -525,7 +524,7 @@ def write_inputs(
 
 def run_hycs_std(workdir: Path, timeout: int | None = None) -> None:
     """
-    Run the ``hycs_std`` in *workdir*, writing its output to ``stilt.log``.
+    Run the ``hycs_std`` in *workdir*, writing its output to ``hysplit.log``.
 
     *workdir* holds the inputs :func:`write_inputs` wrote. With *timeout*
     seconds the run is stopped when it takes longer; without it, it may run
@@ -603,7 +602,7 @@ def _exit_status_error(workdir: Path, status: int) -> SimulationError:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         tail = "\n".join(lines[-MESSAGE_TAIL_LINES:])
         with (workdir / LOG_FILE).open("a", encoding="utf-8") as log:
-            log.write(f"\nPYSTILT: HYSPLIT {how}. The end of {MESSAGE_FILE}:\n{tail}\n")
+            log.write(f"\nruntraj: HYSPLIT {how}. The end of {MESSAGE_FILE}:\n{tail}\n")
     return SimulationError(message, reason=FailureReason.EXIT_STATUS)
 
 

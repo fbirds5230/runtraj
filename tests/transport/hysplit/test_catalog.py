@@ -1,13 +1,13 @@
-"""Tests for what a folder's ARL files hold (stilt.transport.hysplit.catalog)."""
+"""Tests for what a folder's ARL files hold (runtraj.transport.hysplit.catalog)."""
 
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from stilt.transport.hysplit import Met, MetConfig
-from stilt.transport.hysplit import catalog as catalog_module
-from stilt.transport.hysplit.catalog import Catalog, catalog_path
+from runtraj.transport.hysplit import Met, MetConfig
+from runtraj.transport.hysplit import catalog as catalog_module
+from runtraj.transport.hysplit.catalog import Catalog, catalog_path
 
 from ...fixtures.factories import write_arl_file
 
@@ -47,13 +47,13 @@ def test_the_table_is_kept_with_the_crops(tmp_path):
 def test_without_crops_the_table_is_kept_in_the_users_cache(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
     path = catalog_path(Path("/met/hrrr"), None)
-    assert path.parent == tmp_path / "pystilt" / "met_catalogs"
+    assert path.parent == tmp_path / "runtraj" / "met_catalogs"
 
 
 def test_without_a_cache_variable_the_table_is_kept_in_the_home_cache(monkeypatch):
     monkeypatch.delenv("XDG_CACHE_HOME")
     path = catalog_path(Path("/met/hrrr"), None)
-    assert path.parent == Path("~/.cache/pystilt/met_catalogs").expanduser()
+    assert path.parent == Path("~/.cache/runtraj/met_catalogs").expanduser()
 
 
 def test_each_folder_has_its_own_table(tmp_path):

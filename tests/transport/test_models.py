@@ -11,10 +11,10 @@ import pytest
 import yaml
 from pydantic import BaseModel, ConfigDict
 
-from stilt import transport
-from stilt.config import FOOTPRINT_STAGE, ProjectConfig
-from stilt.identity import read_run_settings, settings_hash
-from stilt.transport import ModelInfo, TransportConfig
+from runtraj import transport
+from runtraj.config import ProjectConfig
+from runtraj.identity import read_run_settings, settings_hash
+from runtraj.transport import ModelInfo, TransportConfig
 
 from ..fixtures.factories import make_met_config
 
@@ -68,30 +68,6 @@ TOY_PATH = f"{__name__}.ToyModel"
 
 def _mets(tmp_path):
     return {"hrrr": make_met_config(tmp_path / "met")}
-
-
-def test_a_variant_may_run_another_model(tmp_path, toy):
-    config = ProjectConfig(
-        mets=_mets(tmp_path),
-        models={"hysplit": {"n_hours": -24, "numpar": 500}, "toy": {"n_hours": -24}},
-        stages={"footprint": {"class": FOOTPRINT_STAGE, "grid": GRID}},
-        variants={
-            "hrrr": {"model": "hysplit"},
-            "toy": {"model": "toy", "met": "hrrr", "nparticles": 10},
-        },
-    )
-    variants = config.resolve()
-    hrrr, toy_variant = variants["hrrr"], variants["toy"]
-    assert hrrr.model == "hysplit" and hrrr.transport.numpar == 500
-    # Another model's variant gives its own parameters and gets the same stages.
-    assert toy_variant.model == "toy" and toy_variant.transport.nparticles == 10
-    assert toy_variant.stages.get("footprint") == hrrr.stages.get("footprint")
-    assert variants["toy"].build == ModelInfo(name="toy", version="1.0")
-    assert variants["toy"].particles_hash != variants["hrrr"].particles_hash
-    recorded = variants["toy"].run_settings
-    assert recorded["model"]["name"] == "toy" and recorded["nparticles"] == 10
-    # A stored record reads back through the model's own config class.
-    assert settings_hash(read_run_settings(recorded)) == variants["toy"].particles_hash
 
 
 def test_each_models_block_holds_its_own_defaults(tmp_path, toy):
@@ -296,33 +272,6 @@ def test_a_record_of_a_model_not_installed_still_reads(tmp_path):
         assert read_run_settings(stored) == stored
 
 
-def test_a_stilt_r_block_without_its_class_says_which_class_to_write(tmp_path):
-    # stilt-r was built in; it is named by its import path now.
-    with pytest.raises(
-        ValueError,
-        match=r"models: stilt-r: .*write class: stilt\.stilt_r\.StiltRModel.*"
-        r"import them again",
-    ):
-        ProjectConfig(
-            mets=_mets(tmp_path), models={"stilt-r": {}}, variants={"hrrr": {}}
-        )
-
-
-def test_a_run_imported_under_the_old_stilt_r_name_says_to_import_it_again():
-    # Every listing of an output directory holding such a folder warns once.
-    stored = {
-        "n_hours": -6,
-        "model": {"name": "stilt-r", "sha256": None, "data_files": None},
-        "met": {"met_path": "/data/hrrr"},
-    }
-    with pytest.warns(
-        UserWarning,
-        match=r"'stilt-r' of a stored run could not be loaded.*"
-        r"class: stilt\.stilt_r\.StiltRModel.*import_stilt_r",
-    ):
-        assert read_run_settings(stored) == stored
-
-
 def test_a_model_in_its_own_package_runs_from_a_fresh_interpreter(tmp_path):
     """No registration in the process: the import path alone finds the model."""
     package = tmp_path / "toypkg"
@@ -332,7 +281,7 @@ def test_a_model_in_its_own_package_runs_from_a_fresh_interpreter(tmp_path):
             """
             import pandas as pd
             from pydantic import BaseModel
-            from stilt.transport import ModelRun, TransportConfig
+            from runtraj.transport import ModelRun, TransportConfig
 
             class ToyConfig(TransportConfig):
                 nparticles: int = 2
@@ -373,12 +322,12 @@ def test_a_model_in_its_own_package_runs_from_a_fresh_interpreter(tmp_path):
     )
     script = textwrap.dedent(
         """
-        import stilt
-        release = stilt.PointRelease(
+        import runtraj
+        release = runtraj.PointRelease(
             time="2023-01-01 12:00", longitude=-111.85, latitude=40.77, altitude=5
         )
         met = {"weather": "hrrr"}  # no directory: the toy reads no met files
-        particles = stilt.run_trajectories(
+        particles = runtraj.run_trajectories(
             release, met, model="toypkg.ToyModel", n_hours=-1, nparticles=4
         )
         print(len(particles), sorted(int(p) for p in particles["particle"].unique()))

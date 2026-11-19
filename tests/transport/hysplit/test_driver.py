@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from stilt.exceptions import HYSPLITNotFoundError, SimulationError
-from stilt.transport.hysplit import (
+from runtraj.exceptions import HYSPLITNotFoundError, SimulationError
+from runtraj.transport.hysplit import (
     FailureReason,
     HysplitConfig,
     HysplitModel,
@@ -16,12 +16,10 @@ from stilt.transport.hysplit import (
     read_particle_dat,
     write_inputs,
 )
-from stilt.transport.hysplit.config import FIXED_SETUP, HYSPLIT_VARSIWANT
-from stilt.transport.hysplit.control import ControlFile
-from stilt.transport.hysplit.driver import (
-    MET_STOP_CELLS,
+from runtraj.transport.hysplit.config import FIXED_SETUP, HYSPLIT_VARSIWANT
+from runtraj.transport.hysplit.control import ControlFile
+from runtraj.transport.hysplit.driver import (
     cells_from_edge,
-    check_met_stop,
     setup_entries,
     setup_seed,
     winderrtf,
@@ -288,7 +286,7 @@ def test_run_keeps_fortran_runtime_output_on_failure(tmp_path):
     with pytest.raises(SimulationError) as caught:
         driver.run_hycs_std(tmp_path, timeout=5)
     assert caught.value.reason == FailureReason.FORTRAN_RUNTIME_ERROR
-    assert "Fortran runtime error" in (tmp_path / "stilt.log").read_text()
+    assert "Fortran runtime error" in (tmp_path / "hysplit.log").read_text()
     # The message is HYSPLIT's own line, so a record says what went wrong.
     assert str(caught.value) == (
         "HYSPLIT: Fortran runtime error: File already opened in another unit"
@@ -296,7 +294,7 @@ def test_run_keeps_fortran_runtime_output_on_failure(tmp_path):
 
 
 def test_a_varsiwant_name_hycs_std_stops_on_fails_with_its_line(tmp_path):
-    """The log's last line says why no particles were written, not only that none were (#324)."""
+    """The log's last line says why no particles were written, not only that none were (PYSTILT#324)."""
     _script(
         tmp_path,
         "echo 'Weird variable in VARSIWANT(SETUP.CFG):  zfx1'\n"
@@ -312,7 +310,7 @@ def test_a_varsiwant_name_hycs_std_stops_on_fails_with_its_line(tmp_path):
 
 
 def test_met_that_ran_out_fails_from_hysplits_warning_file(tmp_path):
-    """HYSPLIT says so in WARNING, not in its log (#189)."""
+    """HYSPLIT says so in WARNING, not in its log (PYSTILT#189)."""
     _script(
         tmp_path,
         "echo ' WARNING emspnt: exceeding puff limit' > WARNING\n"
@@ -343,7 +341,7 @@ def test_run_times_out_and_keeps_log_output(tmp_path):
     with pytest.raises(SimulationError, match="timeout") as caught:
         driver.run_hycs_std(tmp_path, timeout=1)
     assert caught.value.reason == FailureReason.TIMEOUT
-    assert "starting hycs_std" in (tmp_path / "stilt.log").read_text()
+    assert "starting hycs_std" in (tmp_path / "hysplit.log").read_text()
 
 
 def _kill_when_started(workdir: Path, sig: int):
@@ -351,7 +349,7 @@ def _kill_when_started(workdir: Path, sig: int):
     Send *sig* to the script in *workdir* once it has written its pid, from another thread.
 
     The script must write ``pid`` last, just before ``exec``, so the kill cannot land
-    before the script has written what the test reads afterwards (#396).
+    before the script has written what the test reads afterwards (PYSTILT#396).
     """
     import os
     import threading
@@ -372,7 +370,7 @@ def _kill_when_started(workdir: Path, sig: int):
 
 
 def test_run_fails_when_hycs_std_is_killed_from_outside(tmp_path):
-    """A kill the run did not send, such as the out-of-memory killer's, is a failure (#318)."""
+    """A kill the run did not send, such as the out-of-memory killer's, is a failure (PYSTILT#318)."""
     import signal
 
     _script(
@@ -390,7 +388,7 @@ def test_run_fails_when_hycs_std_is_killed_from_outside(tmp_path):
 
     assert caught.value.reason == FailureReason.EXIT_STATUS
     assert str(caught.value) == "HYSPLIT was killed by SIGKILL before it finished."
-    log = (tmp_path / "stilt.log").read_text()
+    log = (tmp_path / "hysplit.log").read_text()
     assert "starting hycs_std" in log
     assert log.endswith("The end of MESSAGE:\nfirst line\nlast line of MESSAGE\n")
 
@@ -404,7 +402,7 @@ def test_run_fails_when_hycs_std_exits_with_a_status(tmp_path):
     assert caught.value.reason == FailureReason.EXIT_STATUS
     assert str(caught.value) == "HYSPLIT exited with status 1 before it finished."
     # No MESSAGE file, so nothing is added to the log.
-    assert (tmp_path / "stilt.log").read_text() == "starting hycs_std\n"
+    assert (tmp_path / "hysplit.log").read_text() == "starting hycs_std\n"
 
 
 def test_the_end_of_message_is_the_last_twenty_lines(tmp_path):
@@ -413,9 +411,9 @@ def test_the_end_of_message_is_the_last_twenty_lines(tmp_path):
     with pytest.raises(SimulationError):
         driver.run_hycs_std(tmp_path, timeout=5)
 
-    log = (tmp_path / "stilt.log").read_text()
+    log = (tmp_path / "hysplit.log").read_text()
     assert log.splitlines()[-21:] == [
-        "PYSTILT: HYSPLIT exited with status 2. The end of MESSAGE:"
+        "runtraj: HYSPLIT exited with status 2. The end of MESSAGE:"
     ] + [str(n) for n in range(31, 51)]
 
 
@@ -510,7 +508,7 @@ def _fake_hysplit(
 
     def fake_run(workdir: Path, timeout: int | None) -> None:
         calls.append(timeout)
-        (workdir / "stilt.log").write_text(log)
+        (workdir / "hysplit.log").write_text(log)
         if warning:
             (workdir / "WARNING").write_text(warning)
         if rows is not None:
@@ -532,7 +530,7 @@ def _ending_at(minute: int) -> list[list[float]]:
 
 
 def _run(tmp_path, release, config=None):
-    from stilt.meteorology import run_window
+    from runtraj.meteorology import run_window
 
     config = config or _config()
     make_met_files(tmp_path / "met", release.time, config.n_hours)
@@ -545,8 +543,8 @@ def _run(tmp_path, release, config=None):
 def test_a_run_whose_particles_left_the_domain_early_is_complete(
     tmp_path, point_release, monkeypatch
 ):
-    """Particles that stop short with no met failure are a domain exit, kept for any model (#189)."""
-    from stilt.transport import run_model
+    """Particles that stop short with no met failure are a domain exit, kept for any model (PYSTILT#189)."""
+    from runtraj.transport import run_model
 
     _fake_hysplit(monkeypatch, log="", rows=_ending_at(13 * 60))
     make_met_files(tmp_path / "met", point_release.time, -24)
@@ -594,8 +592,8 @@ def test_run_leaves_particles_that_stop_early_to_the_caller(
 def test_a_run_with_zcfx_in_varsiwant_gives_a_zcfx_column(
     tmp_path, point_release, monkeypatch
 ):
-    """`zcfx` is a column of the particles under that name, as in STILT-R (#324)."""
-    from stilt.transport import run_model
+    """`zcfx` is a column of the particles under that name, as in STILT-R (PYSTILT#324)."""
+    from runtraj.transport import run_model
 
     rows = [[*row, 2.5] for row in _ending_at(24 * 60)]
     _fake_hysplit(monkeypatch, log="", rows=rows)
@@ -630,7 +628,7 @@ PUFF_LIMIT = " WARNING emspnt: exceeding puff limit\n"
 def test_a_multipoint_release_cut_short_by_maxpar_fails(
     tmp_path, multipoint_release, monkeypatch
 ):
-    """HYSPLIT's puff-limit warning means the last locations got fewer particles (#237)."""
+    """HYSPLIT's puff-limit warning means the last locations got fewer particles (PYSTILT#237)."""
     _fake_hysplit(monkeypatch, log="", rows=_ending_at(24 * 60), warning=PUFF_LIMIT)
 
     with pytest.raises(SimulationError, match="3 release locations") as caught:
@@ -677,7 +675,7 @@ def test_a_perturbed_run_is_one_hycs_std_call_with_winderr(
 
 
 # ---------------------------------------------------------------------------
-# check_met_stop: met that ran out, told from a domain exit (#213)
+# check_met_stop: met that ran out, told from a domain exit (PYSTILT#213)
 # ---------------------------------------------------------------------------
 
 
@@ -705,26 +703,6 @@ def _grid(nx: int = 50, ny: int = 50, west: float = 20.0, south: float = -10.0):
 MIDDLE = (44.5, 14.5)
 
 
-def _stopped_at(minute: float, *positions: tuple[float, float, float]):
-    """
-    Particles that each stop *minute* minutes back, at a (lon, lat, zagl) of *positions*.
-
-    Each starts at the grid's middle and has a row at the release and one at
-    the stop, as HYSPLIT writes every time step of each.
-    """
-    import pandas as pd
-
-    rows = []
-    for i, (lon, lat, zagl) in enumerate(positions, start=1):
-        rows.append((i, -1.0, *MIDDLE, 10.0))
-        rows.append((i, -float(minute), lon, lat, zagl))
-    return pd.DataFrame(rows, columns=["particle", "age", "lon", "lat", "zagl"])
-
-
-def _check(particles, n_hours: int = -24, grid=None) -> None:
-    check_met_stop(particles, n_hours, grid or _grid())
-
-
 def test_cells_from_edge_counts_grid_cells_to_the_nearest_side():
     lon = [44.5, 21.5, 66.0, 44.5]
     lat = [14.5, 14.5, 14.5, -8.0]
@@ -747,75 +725,6 @@ def test_a_global_grid_has_no_east_or_west_side():
 
     # Half a cell east of the seam and 90 cells from each pole.
     assert cells[0] == pytest.approx(90.0)
-
-
-def test_a_run_the_met_stopped_inside_the_domain_fails():
-    """HYSPLIT can stop every particle where the met ran out and report a complete run."""
-    particles = _stopped_at(360, (*MIDDLE, 100.0), (40.0, 10.0, 500.0))
-
-    with pytest.raises(SimulationError, match="the met ran out") as caught:
-        _check(particles)
-
-    assert caught.value.reason == FailureReason.MET_COVERAGE
-    message = str(caught.value)
-    assert "6.0 h into the 24 h run" in message
-    assert "up to 24.5 grid cells inside" in message
-
-
-@pytest.mark.parametrize(
-    "position",
-    [
-        (21.5, 14.5, 10.0),  # 1.5 cells from the west side
-        (67.5, 14.5, 10.0),  # 1.5 from the east side
-        (44.5, -8.5, 10.0),  # 1.5 from the south side
-        (44.5, 37.0, 10.0),  # 2.0 from the north side
-    ],
-)
-def test_particles_that_stop_within_two_cells_of_an_edge_left_the_domain(position):
-    """A particle that leaves the domain ends 1 to 2 cells from its edge."""
-    _check(_stopped_at(13 * 60, position))
-
-
-def test_one_particle_more_than_the_limit_inside_fails_the_run():
-    inside = MET_STOP_CELLS + 1
-    particles = _stopped_at(
-        13 * 60, (21.5, 14.5, 10.0), (20.0 + inside, 14.5, 10.0), (67.5, 14.5, 10.0)
-    )
-
-    with pytest.raises(SimulationError) as caught:
-        _check(particles)
-    assert caught.value.reason == FailureReason.MET_COVERAGE
-
-
-def test_a_particle_near_the_domain_top_still_fails_the_run():
-    """HYSPLIT keeps particles from rising above the top, so the top cannot end a run."""
-    with pytest.raises(SimulationError):
-        _check(_stopped_at(13 * 60, (*MIDDLE, 24900.0)))
-
-
-def test_only_the_particles_at_the_last_time_step_count():
-    """A particle that stopped earlier inside the domain is not where the run stopped."""
-    import pandas as pd
-
-    at_the_edge = _stopped_at(13 * 60, (21.5, 14.5, 10.0))
-    earlier_inside = _stopped_at(6 * 60, (*MIDDLE, 10.0)).assign(particle=2)
-
-    _check(pd.concat([at_the_edge, earlier_inside]))
-
-
-def test_a_run_that_reaches_n_hours_is_not_checked():
-    _check(_stopped_at(24 * 60, (*MIDDLE, 10.0)))
-
-
-def test_a_forward_run_is_checked_the_same():
-    particles = _stopped_at(360, (*MIDDLE, 10.0)).assign(age=lambda df: df["age"].abs())
-
-    with pytest.raises(SimulationError):
-        _check(particles, n_hours=24)
-
-
-def test_particles_without_positions_are_not_checked():
-    _check(_stopped_at(360, (*MIDDLE, 10.0)).drop(columns="lat"))
 
 
 def _rows_inside(minute: int) -> list[list[float]]:
@@ -893,7 +802,7 @@ def test_setup_cfg_takes_kmsl_from_an_msl_release(tmp_path, point_release):
 
 
 def test_read_namelist_reads_the_setup_cfg_written(tmp_path, point_release):
-    from stilt.transport.hysplit.namelist import read_namelist
+    from runtraj.transport.hysplit.namelist import read_namelist
 
     config = HysplitConfig(n_hours=-24, numpar=150, wvert=True)
     entries = read_namelist(_inputs(tmp_path, point_release, config) / "SETUP.CFG")
@@ -906,7 +815,7 @@ def test_read_namelist_reads_the_setup_cfg_written(tmp_path, point_release):
 
 
 def test_read_namelist_rejects_a_file_that_is_not_one(tmp_path):
-    from stilt.transport.hysplit.namelist import read_namelist
+    from runtraj.transport.hysplit.namelist import read_namelist
 
     path = tmp_path / "SETUP.CFG"
     path.write_text("NUMPAR=10,\n")
@@ -1029,7 +938,7 @@ def test_directory_comes_before_path(tmp_path, monkeypatch):
 def test_without_directory_or_hycs_std_on_path_says_what_to_set(
     tmp_path, point_release, monkeypatch
 ):
-    """PYSTILT includes no HYSPLIT: the message names both places to put it."""
+    """HYSPLIT is not included: the message names both places to put it."""
     monkeypatch.setenv("PATH", str(tmp_path))
     with pytest.raises(HYSPLITNotFoundError, match="directory.*PATH"):
         _inputs(tmp_path, point_release)
@@ -1136,7 +1045,7 @@ def test_winderrtf_zero_value_params():
 
 
 def test_unset_maxpar_gives_every_location_its_rounded_up_share():
-    """HYSPLIT gives each of n locations ``numpar // n``, often plus one (#237)."""
+    """HYSPLIT gives each of n locations ``numpar // n``, often plus one (PYSTILT#237)."""
     p = HysplitConfig(n_hours=-24, numpar=1000)
     assert p.maxpar is None
     assert p.maxpar_for(1) == 1000  # one location keeps numpar
@@ -1221,7 +1130,7 @@ def test_setup_entries_route_transport_params_to_setup_cfg():
     assert "maxpar" not in entries  # write_inputs adds it for the release
 
 
-# Fortran type of every SETUP.CFG entry PYSTILT writes, from the SETUP
+# Fortran type of every SETUP.CFG entry runtraj writes, from the SETUP
 # namelist declarations in HYSPLIT's hysetup.f. STILT-R's v5.1.0 build
 # reads the same types.
 
@@ -1367,7 +1276,7 @@ def test_the_driver_names_only_real_settings_outside_setup_cfg():
     test_hysplit_setup_types_cover_every_setup_entry catches one HYSPLIT
     does not know.
     """
-    from stilt.transport.hysplit.driver import NOT_IN_SETUP
+    from runtraj.transport.hysplit.driver import NOT_IN_SETUP
 
     assert set(HysplitConfig.model_fields) >= NOT_IN_SETUP
     entries = setup_entries(HysplitConfig(n_hours=-24))

@@ -1,4 +1,4 @@
-"""A script that runs a project on several cpus needs ``if __name__ == "__main__":`` (#274)."""
+"""A script that runs a project on several cpus needs ``if __name__ == "__main__":`` (PYSTILT#274)."""
 
 import contextlib
 import os
@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from stilt.execution import worker
+from runtraj.execution import worker
 
 from .test_worker import _TOY_PACKAGE
 
@@ -17,17 +17,17 @@ _SCRIPT = """
 import multiprocessing, sys
 multiprocessing.set_start_method(sys.argv[1], force=True)
 
-import stilt
+import runtraj
 
 {body}
 """
 
 _RUN = """\
 releases = [
-    stilt.PointRelease(time=f"2023-01-01 0{h}:00", longitude=-111.85, latitude=40.77, altitude=5)
+    runtraj.PointRelease(time=f"2023-01-01 0{h}:00", longitude=-111.85, latitude=40.77, altitude=5)
     for h in range(3)
 ]
-project = stilt.Project.init(
+project = runtraj.Project.init(
     "project",
     releases=releases,
     mets={"toy": {"weather": "hrrr"}},

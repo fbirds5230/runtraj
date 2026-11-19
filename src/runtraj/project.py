@@ -3,18 +3,18 @@ The :class:`Project`: a directory of releases and settings, and a view of their 
 
 A project is a directory holding what the user wrote::
 
-    config.yaml       the settings (written once, by Project.init or stilt init)
+    config.yaml       the settings (written once, by Project.init)
     releases.csv     the releases (only appended to)
 
 Results go to the output directory ``config.yaml`` names
-(:class:`stilt.output.Output`), ``./output`` by default. The simulations a
+(:class:`runtraj.output.Output`), ``./output`` by default. The simulations a
 project defines are its releases crossed with the variants in
-``config.yaml``. A project reads; the workers in :mod:`stilt.execution` are
+``config.yaml``. A project reads; the workers in :mod:`runtraj.execution` are
 the only code that writes results.
 
-This is the particle part, which the workers use. :class:`stilt.Project`
-(:mod:`stilt.stilt_project`) adds the reads of what STILT makes from the
-particles, such as :meth:`stilt.Project.footprints`.
+A package that adds a stage can subclass :class:`Project` with the reads of
+what its stage makes, as PYSTILT's ``stilt.Project`` does for footprints.
+Nothing on disk names the subclass, so either class opens the directory.
 """
 
 from __future__ import annotations
@@ -29,15 +29,15 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
-from stilt._paths import absolute, location, write_parquet
-from stilt.check import check_project
-from stilt.config import ProjectConfig, Variant
-from stilt.execution.config import ExecutionConfig
-from stilt.fetch import fetch_project
-from stilt.output import Output, completed
-from stilt.particles import particles_from_table
-from stilt.releases import Release, read_releases
-from stilt.releases.table import (
+from runtraj._paths import absolute, location, write_parquet
+from runtraj.check import check_project
+from runtraj.config import ProjectConfig, Variant
+from runtraj.execution.config import ExecutionConfig
+from runtraj.fetch import fetch_project
+from runtraj.output import Output, completed
+from runtraj.particles import particles_from_table
+from runtraj.releases import Release, read_releases
+from runtraj.releases.table import (
     COLUMNS,
     ROW_COLUMNS,
     append_releases_csv,
@@ -47,11 +47,11 @@ from stilt.releases.table import (
     releases_from_rows,
     releases_to_csv,
 )
-from stilt.simulation import Simulation
-from stilt.stages import reads
+from runtraj.simulation import Simulation
+from runtraj.stages import reads
 
 if TYPE_CHECKING:
-    from stilt.visualization import ProjectPlotAccessor
+    from runtraj.visualization import ProjectPlotAccessor
 
 
 #: The columns of :attr:`Project.releases` before the label columns.
@@ -156,11 +156,8 @@ class Project:
     are in the output directory ``config.yaml`` names (``./output`` by
     default), which several projects can share.
 
-    This is the part the workers use. :class:`stilt.Project`, which opens the
-    same directory, adds the reads of what STILT makes from the particles
-    (footprints, the Jacobian, the transport error); most users want that
-    one. Make a new project with :meth:`init`. After that, ``config.yaml``
-    is yours to edit; PYSTILT never rewrites it.
+    Make a new project with :meth:`init`. After that, ``config.yaml`` is
+    yours to edit; runtraj never rewrites it.
 
     Parameters
     ----------
@@ -195,7 +192,7 @@ class Project:
         if not self.config_path.exists():
             raise FileNotFoundError(
                 f"No config.yaml in {self.directory}. Make a project with "
-                "stilt.Project.init(...) or `stilt init`."
+                "runtraj.Project.init(...)."
             )
         if (
             self.directory / "receptors.csv"
@@ -220,8 +217,7 @@ class Project:
         Writes ``config.yaml``, with the settings given, and
         ``releases.csv`` when releases are given. The settings are written
         as given: a transport model runs with its own defaults for the
-        settings they leave out. :meth:`stilt.Project.init` also writes the
-        values STILT-R runs HYSPLIT with.
+        settings they leave out.
 
         Parameters
         ----------
@@ -232,7 +228,7 @@ class Project:
         config : ProjectConfig, optional
             The settings. Or give them as keywords instead.
         **settings
-            The blocks of :class:`~stilt.ProjectConfig`: ``mets``, ``models``,
+            The blocks of :class:`~runtraj.ProjectConfig`: ``mets``, ``models``,
             ``stages`` and ``variants``, and ``execution`` and ``output``.
 
         Raises
@@ -326,7 +322,7 @@ class Project:
 
         An ensemble (``realizations: N``) is one variant; its realizations
         are the ``realization`` column of :attr:`simulations`. A footprint given by a geometry gets its grid
-        here, so the geometry is read on first use (:meth:`stilt.ProjectConfig.resolve`),
+        here, so the geometry is read on first use (:meth:`runtraj.ProjectConfig.resolve`),
         and a relative geometry file starts from the project directory.
         """
         return self.config.resolve(self.directory)
@@ -421,10 +417,10 @@ class Project:
 
     def _take_rows(self, rows: pd.DataFrame) -> None:
         """
-        Use *rows*, checked release rows (:func:`~stilt.releases.table.release_rows`), in place of ``releases.csv``.
+        Use *rows*, checked release rows (:func:`~runtraj.releases.table.release_rows`), in place of ``releases.csv``.
 
         A Slurm task reads the rows of its submission's releases
-        (``releases.parquet``, written by :func:`stilt.execution.submit`)
+        (``releases.parquet``, written by :func:`runtraj.execution.submit`)
         rather than reading and checking the whole file again. The project
         then knows only those releases.
         """
@@ -439,7 +435,7 @@ class Project:
         Add releases to ``releases.csv`` and return the ids of the new ones.
 
         The file is created if needed, and otherwise only appended to, in its
-        own columns (:func:`stilt.releases.table.append_releases_csv`). Releases
+        own columns (:func:`runtraj.releases.table.append_releases_csv`). Releases
         it already holds are skipped.
 
         Parameters
@@ -558,9 +554,9 @@ class Project:
         transport model), then the other columns of :attr:`releases`. Rows
         run release by release, with variants in config order. Select rows as in pandas
         and pass the selection to :meth:`status`, :meth:`incomplete`,
-        or :meth:`particles`; :class:`stilt.Project` adds
-        :meth:`~stilt.Project.footprints`, :meth:`~stilt.Project.jacobian`,
-        and :meth:`~stilt.Project.transport_error`.
+        or :meth:`particles`; :class:`runtraj.Project` adds
+        :meth:`~runtraj.Project.footprints`, :meth:`~runtraj.Project.jacobian`,
+        and :meth:`~runtraj.Project.transport_error`.
 
         Examples
         --------
@@ -611,8 +607,8 @@ class Project:
         after the variant that first made them and a short hash of the
         settings (``settings=hrrr-b2399e``). A folder that no variant of this
         project uses comes from changed settings, a dropped variant, or
-        another project sharing the output directory; PYSTILT never deletes
-        one. ``stilt status`` prints this table.
+        another project sharing the output directory; runtraj never deletes
+        one. ``runtraj status`` prints this table.
 
         Returns
         -------
@@ -636,7 +632,7 @@ class Project:
     @cached_property
     def plot(self) -> ProjectPlotAccessor:
         """Plotting methods, such as ``project.plot.availability()``."""
-        from stilt.visualization import ProjectPlotAccessor
+        from runtraj.visualization import ProjectPlotAccessor
 
         return ProjectPlotAccessor(self)
 
@@ -706,7 +702,7 @@ class Project:
         Return, per variant and realization, the selected releases with particles and with each stage's file.
 
         Read from a listing of the date folders the selection falls in
-        (:meth:`stilt.output.Output.present`), in place of a file check per
+        (:meth:`runtraj.output.Output.present`), in place of a file check per
         simulation: on a large project the checks are the slow part. A
         variant has a set for ``particles`` and one for each stage it uses.
         """
@@ -722,7 +718,7 @@ class Project:
 
     @staticmethod
     def _complete(frame: pd.DataFrame, present: dict[_Key, _Present]) -> np.ndarray:
-        """Return whether each row is complete (:func:`stilt.output.completed`), from :meth:`_present`."""
+        """Return whether each row is complete (:func:`runtraj.output.completed`), from :meth:`_present`."""
         done = {key: completed(*sets.values()) for key, sets in present.items()}
         return np.array([r in done[(v, k)] for r, v, k in _rows(frame)], dtype=bool)
 
@@ -750,20 +746,20 @@ class Project:
             are ``True`` when the result exists, ``False`` when it is
             missing, and ``NA`` when the variant does not make it. ``state``
             is ``complete`` when every expected result exists
-            (:attr:`stilt.simulation.Simulation.is_complete`), ``failed`` when the last
+            (:attr:`runtraj.simulation.Simulation.is_complete`), ``failed`` when the last
             run failed, ``interrupted`` when a run of its particles started
             and stopped before it finished (a time limit, preemption, or a
             killed process), and ``pending`` when nothing has run.
             ``stage`` (``particles``, or the stage that failed), ``reason``,
             and ``message`` say why a failed simulation failed
-            (:attr:`stilt.simulation.Simulation.failure`), and are ``NA`` for the
+            (:attr:`runtraj.simulation.Simulation.failure`), and are ``NA`` for the
             others.
 
         Notes
         -----
         An empty footprint (no particle reached the grid) is complete: its
         ``sim.footprint`` is ``None`` while ``sim.has_footprint`` is true,
-        and :meth:`stilt.Project.jacobian` lists the empty ones.
+        and :meth:`runtraj.Project.jacobian` lists the empty ones.
 
         Examples
         --------
@@ -820,7 +816,7 @@ class Project:
         A simulation without particles is explained by its particles'
         record. One with particles is explained by the record of the first
         stage, in the order they run, that has no file where what it reads
-        exists and that has a record (:attr:`stilt.simulation.Simulation.failure`).
+        exists and that has a record (:attr:`runtraj.simulation.Simulation.failure`).
         Only those releases' date folders are listed, and only the records
         found are read.
         """
@@ -978,7 +974,7 @@ class Project:
             separated by commas, when they share a met, a run length, a
             grid, or a table), ``release`` (``NA`` when it is not about
             one release), and ``message`` columns. Empty when nothing is
-            found. ``stilt check`` prints it.
+            found. ``runtraj check`` prints it.
 
         Raises
         ------
@@ -1035,7 +1031,7 @@ class Project:
             columns: a row for each file, with ``message`` empty, then a row
             for each window whose files could not be had, with ``file``
             empty. No row has a ``message`` when every file is there. Empty
-            when no simulation is left to run. ``stilt fetch`` prints it.
+            when no simulation is left to run. ``runtraj fetch`` prints it.
 
         Raises
         ------
@@ -1049,7 +1045,7 @@ class Project:
         OSError
             If a download fails for any reason but a missing file, such as
             a busy archive or a full disk, and so does a connection error
-            of the download library. ``stilt fetch`` exits with 3 or 4.
+            of the download library. ``runtraj fetch`` exits with 3 or 4.
 
         Examples
         --------
@@ -1082,10 +1078,10 @@ class Project:
         """
         Run every simulation that has not finished, and wait for it.
 
-        Shorthand for :func:`stilt.execution.run`, which documents the
+        Shorthand for :func:`runtraj.execution.run`, which documents the
         parameters. Use :meth:`submit` to submit to Slurm and return at once.
         """
-        from stilt.execution import run
+        from runtraj.execution import run
 
         return run(
             self,
@@ -1107,11 +1103,11 @@ class Project:
         """
         Submit every simulation that has not finished to Slurm, and return at once.
 
-        Shorthand for :func:`stilt.execution.submit`, which documents the
+        Shorthand for :func:`runtraj.execution.submit`, which documents the
         parameters. Returns the Slurm job id, or ``None`` when nothing needs
         to run.
         """
-        from stilt.execution import submit
+        from runtraj.execution import submit
 
         return submit(
             self,

@@ -1,31 +1,28 @@
-"""Tests for stilt.exceptions: one StiltError base, each under its builtin."""
+"""Tests for runtraj.exceptions: one RuntrajError base, each under its builtin."""
 
 import inspect
 
 import pytest
 
-import stilt
-from stilt import exceptions
-from stilt.exceptions import (
-    EmptyFootprint,
+import runtraj
+from runtraj import exceptions
+from runtraj.exceptions import (
     HYSPLITNotFoundError,
     MeteorologyError,
     MissingClass,
+    RuntrajError,
     SimulationError,
-    StiltError,
     WorkerDied,
 )
-from stilt.transport.hysplit import FailureReason
 
-#: Each class and the parents it must have (#80).
+#: Each class and the parents it must have (PYSTILT#80).
 PARENTS = {
-    StiltError: (Exception,),
-    SimulationError: (StiltError, RuntimeError),
+    RuntrajError: (Exception,),
+    SimulationError: (RuntrajError, RuntimeError),
     MeteorologyError: (SimulationError,),
-    HYSPLITNotFoundError: (StiltError, FileNotFoundError),
-    MissingClass: (StiltError, ImportError),
-    EmptyFootprint: (StiltError,),
-    WorkerDied: (StiltError, RuntimeError),
+    HYSPLITNotFoundError: (RuntrajError, FileNotFoundError),
+    MissingClass: (RuntrajError, ImportError),
+    WorkerDied: (RuntrajError, RuntimeError),
 }
 
 
@@ -42,16 +39,21 @@ def test_every_exception_class_is_in_the_table():
 @pytest.mark.parametrize("cls", list(PARENTS), ids=lambda cls: cls.__name__)
 def test_parents(cls):
     assert cls.__bases__ == PARENTS[cls]
-    assert issubclass(cls, StiltError)
+    assert issubclass(cls, RuntrajError)
 
 
-def test_stilt_error_is_exported():
-    assert stilt.StiltError is StiltError
+def test_runtraj_error_is_exported():
+    assert runtraj.RuntrajError is RuntrajError
 
 
-def test_empty_footprint_is_not_a_failure():
-    assert not issubclass(EmptyFootprint, (SimulationError, RuntimeError))
-    assert str(EmptyFootprint()) == "No particle is over the footprint grid."
+def test_simulation_error_keeps_its_reason_and_log():
+    error = SimulationError("no particles", reason="NO_PARTICLE_DATA", log="the log")
+    assert (str(error), error.reason, error.log) == (
+        "no particles",
+        "NO_PARTICLE_DATA",
+        "the log",
+    )
+    assert MeteorologyError("no met").reason == "MET_COVERAGE"
 
 
 def test_hysplit_not_found_is_not_a_failed_run():
@@ -60,6 +62,8 @@ def test_hysplit_not_found_is_not_a_failed_run():
 
 
 def test_a_simulation_error_carries_its_reason():
+    from runtraj.transport.hysplit import FailureReason
+
     err = SimulationError(
         "HYSPLIT failed (MET_COVERAGE).", reason=FailureReason.MET_COVERAGE
     )
@@ -68,7 +72,6 @@ def test_a_simulation_error_carries_its_reason():
     assert SimulationError("no short name").reason is None
 
 
-def test_a_meteorology_error_is_a_met_coverage_failure():
-    assert (
-        MeteorologyError("No met file for 2021-01-14 00:00.").reason == "MET_COVERAGE"
-    )
+def test_a_missing_class_and_a_dead_worker_keep_their_builtins():
+    assert issubclass(MissingClass, ImportError)
+    assert issubclass(WorkerDied, RuntimeError)

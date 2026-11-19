@@ -1,6 +1,6 @@
-"""Module entry point for ``python -m stilt``."""
+"""Module entry point for ``python -m runtraj``."""
 
-from stilt.stilt_cli import app
+from runtraj.cli import app
 
 
 def main() -> None:

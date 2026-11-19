@@ -24,7 +24,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from stilt._paths import write_parquet
+from runtraj._paths import write_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def is_stray(name: str) -> bool:
     until it is renamed into place. Stray names are lock files, backup copies
     (``name~<timestamp>~``, ``name.~1~``, and ``name~`` all end in ``~``), a
     download cut short (``.partial``), a copy set aside as damaged
-    (``.bad``), and a crop PYSTILT is still writing (``.name.<id>.tmp``).
+    (``.bad``), and a crop runtraj is still writing (``.name.<id>.tmp``).
     """
     return (
         ".lock" in name
@@ -108,7 +108,7 @@ def catalog_path(directory: Path, subgrid_dir: Path | None) -> Path:
         parent = subgrid_dir / "catalogs"
     else:
         cache = os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
-        parent = Path(cache) / "pystilt" / "met_catalogs"
+        parent = Path(cache) / "runtraj" / "met_catalogs"
     key = hashlib.sha256(str(directory).encode()).hexdigest()[:16]
     return parent / f"{key}.parquet"
 

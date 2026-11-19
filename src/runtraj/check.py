@@ -6,9 +6,9 @@ that it has releases, that the transport model's
 executable is there (HYSPLIT's ``hycs_std``), the met files each release needs,
 whether each release is inside the met's crop, whether ``varsiwant`` holds
 ``zsfc`` where the run needs it, and what each stage of a variant finds
-wrong with its own inputs (:meth:`stilt.stages.Stage.check`): for the
+wrong with its own inputs (:meth:`runtraj.stages.Stage.check`): for the
 footprint, a release outside the grid, or an averaging-kernel table that
-does not match the releases. ``Project.check`` and ``stilt check`` call it.
+does not match the releases. ``Project.check`` and ``runtraj check`` call it.
 """
 
 from __future__ import annotations
@@ -18,12 +18,12 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from stilt.particles.table import needs_height_to_match
-from stilt.transport import get_model
+from runtraj.particles.table import needs_height_to_match
+from runtraj.transport import get_model
 
 if TYPE_CHECKING:
-    from stilt.config import Variant
-    from stilt.project import Project
+    from runtraj.config import Variant
+    from runtraj.project import Project
 
 #: The columns of the table :func:`check_project` returns.
 CHECK_COLUMNS = ("check", "variant", "release", "message")
@@ -128,7 +128,7 @@ def _stage_checks(
     """
     Yield what each of the variant's stages finds wrong for the project's releases.
 
-    A stage checks its own inputs (:meth:`stilt.stages.Stage.check`): the
+    A stage checks its own inputs (:meth:`runtraj.stages.Stage.check`): the
     footprint stage lists the releases outside its grid and what each of
     its transforms finds. Variants with equal settings of a stage share its
     check; *configs* holds the settings seen so far.

@@ -2,10 +2,9 @@
 The transport model interface.
 
 A transport model turns one release and one set of transport settings into
-a particle table. HYSPLIT (:class:`stilt.transport.hysplit.HysplitModel`)
-is the one built in; a model in another package, or PYSTILT's model of runs
-imported from STILT-R (:class:`stilt.stilt_r.StiltRModel`), is named by its
-import path. The worker reaches
+a particle table. HYSPLIT (:class:`runtraj.transport.hysplit.HysplitModel`)
+is the one built in; a model in another package is named by its import
+path. The worker reaches
 a model through :func:`get_model` by the name a run's settings record, so
 another model needs no change to the worker.
 """
@@ -21,13 +20,13 @@ from typing import TYPE_CHECKING, Any, ClassVar, Protocol, Self
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from stilt._plugins import import_class
-from stilt.exceptions import SimulationError
-from stilt.meteorology import run_window
-from stilt.particles import add_release_heights, check_particles
+from runtraj._plugins import import_class
+from runtraj.exceptions import SimulationError
+from runtraj.meteorology import run_window
+from runtraj.particles import add_release_heights, check_particles
 
 if TYPE_CHECKING:
-    from stilt.releases import Release
+    from runtraj.releases import Release
 
 
 @dataclass(frozen=True)
@@ -39,13 +38,13 @@ class ModelRun:
     ----------
     particles : pandas.DataFrame
         The particle table, one row per particle per time step
-        (:data:`stilt.particles.PARTICLE_SCHEMA`).
+        (:data:`runtraj.particles.PARTICLE_SCHEMA`).
     log : str
         The model's log of the run, kept with the particles
-        (:attr:`stilt.Simulation.log`). Empty for a model that writes none.
+        (:attr:`runtraj.Simulation.log`). Empty for a model that writes none.
     met_files : list of Path
         The meteorology files the run read, recorded in the particle file
-        (:func:`stilt.particles.particles_metadata`). Empty for a model that reads
+        (:func:`runtraj.particles.particles_metadata`). Empty for a model that reads
         no files.
     """
 
@@ -103,7 +102,7 @@ class TransportConfig(BaseModel):
     """
     The base of every transport model's config.
 
-    It holds the parameters PYSTILT's own code reads, whatever the model:
+    It holds the parameters runtraj's own code reads, whatever the model:
     the run length and the seed, which set the run window and the
     realizations. Everything else, the particle count included, is the
     model's own. A model's config subclasses it with its own
@@ -183,7 +182,7 @@ class TransportModel(Protocol):
         once, where it otherwise calls :meth:`run` for one at a time.
     check_met : callable, optional
         ``check_met(met, releases, n_hours)``, for a model that reads files,
-        which ``stilt check`` calls to find what would stop its runs before
+        which ``runtraj check`` calls to find what would stop its runs before
         any starts. *met* is the model's met config, *releases* a table
         with one row per release point (``release``, ``time``,
         ``longitude``, ``latitude``), and *n_hours* the length of the runs.
@@ -194,9 +193,9 @@ class TransportModel(Protocol):
         check.
     fetch_met : callable, optional
         ``fetch_met(met, windows)``, for a model that reads files, which
-        ``stilt fetch`` calls to get the files its runs need before any
+        ``runtraj fetch`` calls to get the files its runs need before any
         starts. *met* is the model's met config and *windows* the time each
-        run covers (:func:`stilt.meteorology.run_window`). It gets the files
+        run covers (:func:`runtraj.meteorology.run_window`). It gets the files
         a run of those windows would ask for, downloading what the met
         downloads, and returns a DataFrame with ``file`` and ``message``
         columns: a row for each file, then a row for each window whose files
@@ -204,7 +203,7 @@ class TransportModel(Protocol):
     downloads_met : callable, optional
         ``downloads_met(met)``, for a model with ``fetch_met``: whether *met*
         downloads files, so that getting them once before the runs saves
-        each run from downloading its own. ``stilt submit`` submits a fetch
+        each run from downloading its own. ``runtraj submit`` submits a fetch
         job before the job array only when it is true for a met the
         unfinished simulations use. A model without it downloads nothing.
     """
@@ -224,7 +223,7 @@ class TransportModel(Protocol):
         Its ``settings()`` returns what a run records of the met: which
         weather it is, and anything else that changes the particles, but not
         where its files are kept. HYSPLIT's is
-        :class:`stilt.transport.hysplit.MetConfig`.
+        :class:`runtraj.transport.hysplit.MetConfig`.
         """
         ...
 
@@ -264,7 +263,7 @@ class TransportModel(Protocol):
         """
         Run one release and return its particles.
 
-        The particles are the model's own: PYSTILT checks them and adds the
+        The particles are the model's own: runtraj checks them and adds the
         release heights, and ``foot`` when the model wrote none, afterwards
         (:func:`run_model`).
 
@@ -279,7 +278,7 @@ class TransportModel(Protocol):
             project its directories are absolute.
         window : tuple of datetime
             The time the run covers, ``(start, end)`` in time order
-            (:func:`stilt.meteorology.run_window`).
+            (:func:`runtraj.meteorology.run_window`).
         workdir : Path, optional
             An empty directory for the run's files, kept when the run fails.
             ``None`` for a model that needs one to make its own.
@@ -332,41 +331,17 @@ class BatchedTransportModel(TransportModel, Protocol):
 
 def _hysplit() -> TransportModel:
     """Return HYSPLIT, importing its package only when it is asked for."""
-    from stilt.transport.hysplit import HysplitModel
+    from runtraj.transport.hysplit import HysplitModel
 
     return HysplitModel()
 
 
 #: The transport models built in, by the name of their block under
-#: ``models:`` in ``config.yaml``: ``hysplit``. Any other model, such as
-#: the one of runs imported from STILT-R (:class:`stilt.stilt_r.StiltRModel`),
-#: is named by its import path instead, the ``class`` of its block, as a
-#: transform's ``kind:`` is.
+#: ``models:`` in ``config.yaml``: ``hysplit``. Any other model is named
+#: by its import path instead, the ``class`` of its block.
 MODELS: dict[str, Callable[[], TransportModel]] = {
     "hysplit": _hysplit,
 }
-
-#: Names that were built-in models and are now a class named by its import
-#: path, so the message for a block or a stored run of that name says which.
-_NAMED_BY_PATH = {"stilt-r": "stilt.stilt_r.StiltRModel"}
-
-
-def _named_by_path(name: str) -> str:
-    """
-    Return what to write for a model *name* that is named by its import path now, or ``""``.
-
-    ``stilt-r`` was built in. Its block takes ``class:
-    stilt.stilt_r.StiltRModel``, and runs imported under the old name have to
-    be imported again, since their folders are named by the model.
-    """
-    path = _NAMED_BY_PATH.get(name)
-    if path is None:
-        return ""
-    return (
-        f" {name!r} is the class {path} now: write class: {path} in its "
-        "models: block. Runs imported under the old name are not found by "
-        "it; import them again with stilt.migration.import_stilt_r."
-    )
 
 
 def get_model(name: str) -> TransportModel:
@@ -374,7 +349,7 @@ def get_model(name: str) -> TransportModel:
     Return the transport model *name* names.
 
     *name* is a built-in model (:data:`MODELS`, such as ``hysplit``) or the
-    import path of a model class, such as ``emulator.stilt.EmulatorModel``,
+    import path of a model class, such as ``emulator.runtraj.EmulatorModel``,
     which is imported and made with no arguments. A model in a package of
     its own needs no registration, so every process that opens the project
     finds it.
@@ -394,7 +369,7 @@ def get_model(name: str) -> TransportModel:
         raise ValueError(
             f"Unknown transport model {name!r}. The built-in models are "
             f"{sorted(MODELS)}; another is named by its import path, such as "
-            f"mypkg.models.MyModel.{_named_by_path(name)}"
+            "mypkg.models.MyModel."
         )
     return factory()
 
@@ -411,14 +386,10 @@ def run_model(
     Run the transport model called *name* for one release, and finish its particles.
 
     The particles are checked against the particle table
-    (:func:`stilt.particles.check_particles`) and get their release heights
-    (:func:`stilt.particles.add_release_heights`). These steps are
-    PYSTILT's, the same for any model. Nothing else is added: ``foot`` is
-    the model's own, or missing for a model that writes none, and the
-    footprint stage computes one when it needs it
-    (:func:`stilt.footprint.footprint_particles`). The near-field
-    correction is not applied here either: :func:`stilt.calc_footprint`
-    applies it when it makes a footprint (``hnf_plume``).
+    (:func:`runtraj.particles.check_particles`) and get their release heights
+    (:func:`runtraj.particles.add_release_heights`). These steps are
+    runtraj's, the same for any model. Nothing else is added: ``foot`` is
+    the model's own, or missing for a model that writes none.
 
     Parameters
     ----------
@@ -543,8 +514,7 @@ def run_trajectories(
     Run the transport model for one release and return its particles.
 
     This is what a project runs for each release, without a project: the
-    particles are returned, not stored. STILT-R calls it
-    ``calc_trajectory``.
+    particles are returned, not stored.
 
     Parameters
     ----------
@@ -553,7 +523,7 @@ def run_trajectories(
     met : str, dict or BaseModel
         The meteorology, as one entry under ``mets:`` in ``config.yaml``,
         checked by the model's met config
-        (:class:`stilt.transport.hysplit.MetConfig` for HYSPLIT). A string is
+        (:class:`runtraj.transport.hysplit.MetConfig` for HYSPLIT). A string is
         the folder of its files, and a relative folder starts from the
         working directory.
     model : str, default "hysplit"
@@ -566,10 +536,9 @@ def run_trajectories(
         Time limit in seconds. ``None`` waits indefinitely.
     **params
         The transport model's parameters, such as ``n_hours`` and
-        ``numpar`` (:class:`stilt.transport.hysplit.HysplitConfig`).
+        ``numpar`` (:class:`runtraj.transport.hysplit.HysplitConfig`).
         ``n_hours`` is required; the others default to the model's own
-        values, which for HYSPLIT are not STILT-R's (see
-        :data:`stilt.stilt_project.STILT_R_HYSPLIT`).
+        values.
 
     Returns
     -------
@@ -577,11 +546,7 @@ def run_trajectories(
         The particle table, one row per particle per output step, with
         ``time`` (UTC), the release time plus ``age``, as a table read from
         a particle file has. ``foot`` is the model's own (HYSPLIT's, made
-        with ``veght``), with no near-field correction:
-        :func:`stilt.calc_footprint` applies it (``hnf_plume``), given
-        ``veght`` as its ``footprint_depth``. STILT-R's ``calc_trajectory``
-        applies it here. A model that writes no ``foot`` returns none:
-        :func:`stilt.footprint.add_foot` computes one.
+        with ``veght``). A model that writes no ``foot`` returns none.
 
     Raises
     ------
@@ -595,10 +560,10 @@ def run_trajectories(
 
     Examples
     --------
-    >>> release = stilt.PointRelease(  # doctest: +SKIP
+    >>> release = runtraj.PointRelease(  # doctest: +SKIP
     ...     time="2023-07-15 18:00", longitude=-111.848, latitude=40.766, altitude=10
     ... )
-    >>> particles = stilt.run_trajectories(
+    >>> particles = runtraj.run_trajectories(
     ...     release, "/data/hrrr", n_hours=-24, numpar=200
     ... )  # doctest: +SKIP
     """

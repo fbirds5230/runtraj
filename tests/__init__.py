@@ -1,1 +1,1 @@
-"""Tests for stilt."""
+"""Tests for runtraj."""

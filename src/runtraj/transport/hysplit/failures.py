@@ -12,7 +12,7 @@ class FailureReason(StrEnum):
     The driver reads it from HYSPLIT's log and ``WARNING`` file when the
     run ends, or knows it (a timeout, no particle output, its exit
     status), and raises a
-    :class:`~stilt.exceptions.SimulationError` with it as ``reason``. The
+    :class:`~runtraj.exceptions.SimulationError` with it as ``reason``. The
     worker records it with the simulation.
     """
 
@@ -25,7 +25,7 @@ class FailureReason(StrEnum):
     EXIT_STATUS = "EXIT_STATUS"
 
 
-#: Phrases HYSPLIT (or the driver) writes to stilt.log or HYSPLIT's WARNING
+#: Phrases HYSPLIT (or the driver) writes to hysplit.log or HYSPLIT's WARNING
 #: file, mapped to their FailureReason. The four ``metpos`` warnings say a
 #: particle inside the met's grid reached a time no met file holds: the met
 #: ran out. HYSPLIT writes only the first such warning of a run. It writes

@@ -1,9 +1,9 @@
-"""Tests for stilt.transport.hysplit.failures: why a HYSPLIT run failed, from its log."""
+"""Tests for runtraj.transport.hysplit.failures: why a HYSPLIT run failed, from its log."""
 
 import pytest
 
-from stilt.transport.hysplit import FailureReason
-from stilt.transport.hysplit.failures import failure_in
+from runtraj.transport.hysplit import FailureReason
+from runtraj.transport.hysplit.failures import failure_in
 
 
 def test_failure_reason_is_str():

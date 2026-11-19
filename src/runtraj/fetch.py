@@ -3,7 +3,7 @@ The fetch before a run: the met files a project's unfinished simulations need, g
 
 :func:`fetch_project` asks each variant's transport model for the files its
 runs would ask for, so the runs that follow find them and download nothing.
-``Project.fetch`` and ``stilt fetch`` call it.
+``Project.fetch`` and ``runtraj fetch`` call it.
 """
 
 from __future__ import annotations
@@ -13,11 +13,11 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from stilt.meteorology import run_window
-from stilt.transport import get_model
+from runtraj.meteorology import run_window
+from runtraj.transport import get_model
 
 if TYPE_CHECKING:
-    from stilt.project import Project
+    from runtraj.project import Project
 
 #: The columns of the table :func:`fetch_project` returns.
 FETCH_COLUMNS = ("met", "file", "message")
@@ -31,7 +31,7 @@ def fetch_project(project: Project, unrun: pd.DataFrame) -> pd.DataFrame:
     ``project.simulations`` with ``release`` and ``variant`` columns). For
     each met they use, the model gets the files for the time each run
     covers, as a run would (``fetch_met`` of the transport model, see
-    :class:`stilt.transport.TransportModel`). A model without ``fetch_met``
+    :class:`runtraj.transport.TransportModel`). A model without ``fetch_met``
     has no files to get and adds no row.
 
     Returns
@@ -65,7 +65,7 @@ def downloads(project: Project, variants: Iterable[str]) -> bool:
     Whether the met of one of *variants* downloads its files.
 
     Each variant's transport model says, with its ``downloads_met`` (see
-    :class:`stilt.transport.TransportModel`); a model without it downloads
+    :class:`runtraj.transport.TransportModel`); a model without it downloads
     nothing. Reads no file, so it is cheap to ask before a listing.
     """
     for name in variants:

@@ -1,4 +1,4 @@
-"""Tests for ``particles.stilt.to_cf_trajectories``."""
+"""Tests for ``particles.runtraj.to_cf_trajectories``."""
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,7 @@ def particles():
 
 
 def test_one_trajectory_per_particle_padded_at_the_end(particles):
-    ds = particles.stilt.to_cf_trajectories()
+    ds = particles.runtraj.to_cf_trajectories()
 
     assert dict(ds.sizes) == {"trajectory": 20, "obs": 48 * 6 - 1}
     assert ds.trajectory.values.tolist() == list(range(1, 21))
@@ -28,7 +28,7 @@ def test_one_trajectory_per_particle_padded_at_the_end(particles):
 
 
 def test_values_follow_the_particle_table(particles):
-    ds = particles.stilt.to_cf_trajectories()
+    ds = particles.runtraj.to_cf_trajectories()
 
     one = particles[particles.particle == 3].sort_values("age", ascending=False)
     row = ds.sel(trajectory=3)
@@ -51,7 +51,7 @@ def test_obs_counts_steps_from_the_release():
         }
     )
     table["time"] = RELEASE_TIME + pd.to_timedelta(table["age"], unit="min")
-    ds = table.stilt.to_cf_trajectories()
+    ds = table.runtraj.to_cf_trajectories()
     assert ds.lon.values.tolist() == [[1.0, 2.0, 3.0]]
     # A backward run's time decreases along obs.
     assert (np.diff(ds.time.values[0]) < np.timedelta64(0, "ns")).all()
@@ -68,7 +68,7 @@ def test_a_forward_run_runs_forward_in_time():
         }
     )
     table["time"] = RELEASE_TIME + pd.to_timedelta(table["age"], unit="min")
-    ds = table.stilt.to_cf_trajectories()
+    ds = table.runtraj.to_cf_trajectories()
     expected = np.array(
         ["2024-01-15T18:10", "2024-01-15T18:20"], dtype="datetime64[ns]"
     )
@@ -76,17 +76,17 @@ def test_a_forward_run_runs_forward_in_time():
 
 
 def test_times_with_a_time_zone_become_utc(particles):
-    utc = particles.stilt.to_cf_trajectories()
+    utc = particles.runtraj.to_cf_trajectories()
     denver = particles.assign(
         time=particles.time.dt.tz_localize("UTC").dt.tz_convert("America/Denver")
     )
     assert (
-        denver.stilt.to_cf_trajectories().time.values[:, 0] == utc.time.values[:, 0]
+        denver.runtraj.to_cf_trajectories().time.values[:, 0] == utc.time.values[:, 0]
     ).all()
 
 
 def test_cf_metadata(particles):
-    ds = particles.stilt.to_cf_trajectories()
+    ds = particles.runtraj.to_cf_trajectories()
 
     assert ds.attrs["Conventions"] == "CF-1.10"
     assert ds.attrs["featureType"] == "trajectory"
@@ -107,13 +107,13 @@ def test_cf_metadata(particles):
 
 
 def test_a_column_without_known_units_is_kept_without_units(particles):
-    ds = particles.assign(mine=1.5, label="x").stilt.to_cf_trajectories()
+    ds = particles.assign(mine=1.5, label="x").runtraj.to_cf_trajectories()
     assert ds.mine.attrs == {}
     assert "label" not in ds
 
 
 def test_a_netcdf_file_reads_back_the_same(particles, tmp_path):
-    ds = particles.stilt.to_cf_trajectories()
+    ds = particles.runtraj.to_cf_trajectories()
     path = tmp_path / "trajectories.nc"
     ds.to_netcdf(path)
 
@@ -132,7 +132,7 @@ def test_a_netcdf_file_reads_back_the_same(particles, tmp_path):
 def test_cf_xarray_finds_the_coordinates(particles):
     cf_xarray = pytest.importorskip("cf_xarray")
     assert cf_xarray  # registers the .cf accessor
-    ds = particles.stilt.to_cf_trajectories()
+    ds = particles.runtraj.to_cf_trajectories()
     assert ds.cf["longitude"].name == "lon"
     assert ds.cf["latitude"].name == "lat"
     assert ds.cf["time"].name == "time"
@@ -142,7 +142,7 @@ def test_cf_xarray_finds_the_coordinates(particles):
 def test_trajan_opens_the_file(particles, tmp_path):
     pytest.importorskip("trajan")
     path = tmp_path / "trajectories.nc"
-    particles.stilt.to_cf_trajectories().to_netcdf(path)
+    particles.runtraj.to_cf_trajectories().to_netcdf(path)
 
     with xr.open_dataset(path, decode_timedelta=False) as ds:
         traj = ds.traj
@@ -156,27 +156,27 @@ def test_trajan_opens_the_file(particles, tmp_path):
 @pytest.mark.parametrize("column", ["particle", "age", "time", "lon", "lat", "zagl"])
 def test_a_missing_column_is_refused(particles, column):
     with pytest.raises(ValueError, match=f"no column {column}"):
-        particles.drop(columns=column).stilt.to_cf_trajectories()
+        particles.drop(columns=column).runtraj.to_cf_trajectories()
 
 
 def test_several_realizations_are_refused(particles):
     two = pd.concat([particles.assign(realization=0), particles.assign(realization=1)])
     with pytest.raises(ValueError, match="several realizations"):
-        two.stilt.to_cf_trajectories()
+        two.runtraj.to_cf_trajectories()
 
 
 def test_one_realization_is_recorded(particles):
-    ds = particles.assign(realization=3).stilt.to_cf_trajectories()
+    ds = particles.assign(realization=3).runtraj.to_cf_trajectories()
     assert ds.attrs["realization"] == 3
     assert "realization" not in ds
 
 
 def test_a_repeated_age_is_refused(particles):
     with pytest.raises(ValueError, match="same age"):
-        pd.concat([particles, particles.iloc[:1]]).stilt.to_cf_trajectories()
+        pd.concat([particles, particles.iloc[:1]]).runtraj.to_cf_trajectories()
 
 
 def test_an_empty_table_gives_an_empty_dataset(particles):
-    ds = particles.iloc[:0].stilt.to_cf_trajectories()
+    ds = particles.iloc[:0].runtraj.to_cf_trajectories()
     assert dict(ds.sizes) == {"trajectory": 0, "obs": 0}
     assert ds.attrs["featureType"] == "trajectory"

@@ -2,8 +2,8 @@
 Small objects many tests need, built in one place.
 
 A test that needs a met config, a project config, a resolved variant, or a
-release calls these, so a change to :class:`stilt.transport.hysplit.MetConfig`,
-:class:`stilt.config.Variant`, or the release types is one edit here, not
+release calls these, so a change to :class:`runtraj.transport.hysplit.MetConfig`,
+:class:`runtraj.config.Variant`, or the release types is one edit here, not
 one in every test module.
 """
 
@@ -14,11 +14,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from stilt.config import FOOTPRINT_STAGE, ProjectConfig, Variant
-from stilt.footprint.config import FootprintConfig
-from stilt.releases import PointRelease
-from stilt.transport import TransportConfig
-from stilt.transport.hysplit import HysplitConfig, MetConfig
+from runtraj.config import ProjectConfig, Variant
+from runtraj.releases import PointRelease
+from runtraj.transport import TransportConfig
+from runtraj.transport.hysplit import HysplitConfig, MetConfig
 
 #: The source id the ARL files these factories write carry.
 SOURCE = "HRRR"
@@ -39,7 +38,7 @@ def write_arl_file(
     One time step per entry in *times* on a 20 x 20 grid of whole degrees,
     125 W to 106 W and 30 N to 49 N (so it holds the tests' releases), each with PRSS
     at the surface and TEMP above it: enough for a met's source to be read
-    from it (:meth:`stilt.transport.hysplit.MetConfig.source`) and for
+    from it (:meth:`runtraj.transport.hysplit.MetConfig.source`) and for
     arlmet to check it, not for HYSPLIT to run on it. With *partial*, the
     last time step has no TEMP, as a write stopped partway leaves it.
     """
@@ -111,15 +110,15 @@ def make_met_files(directory: Path, time: Any, n_hours: int) -> list[Path]:
     """
     Write hourly met files that cover a run of *n_hours* from *time*, and return them.
 
-    They reach one hour beyond the run on each side, so :class:`stilt.transport.hysplit.Met` finds them.
+    They reach one hour beyond the run on each side, so :class:`runtraj.transport.hysplit.Met` finds them.
     Each holds its own hour and half past it (:func:`write_arl_file`), since
     HYSPLIT cannot read a file with one time period and
-    :meth:`stilt.transport.hysplit.Met.check` refuses it; the transport
+    :meth:`runtraj.transport.hysplit.Met.check` refuses it; the transport
     model cannot run on them.
     """
     import pandas as pd
 
-    from stilt.meteorology import run_window
+    from runtraj.meteorology import run_window
 
     start, end = run_window(time, n_hours)
     hours = pd.date_range(
@@ -136,50 +135,24 @@ def make_met_files(directory: Path, time: Any, n_hours: int) -> list[Path]:
 
 
 _CONFIG_KEYS = frozenset(ProjectConfig.model_fields)
-_FOOTPRINT_KEYS = frozenset(FootprintConfig.model_fields)
 
 
 def blocks(**settings: Any) -> dict[str, Any]:
     """
-    Return the blocks of a :class:`~stilt.ProjectConfig` from settings given by name alone.
+    Return the blocks of a :class:`~runtraj.ProjectConfig` from settings given by name alone.
 
-    For a test that needs a config and is not about its layout. A footprint
-    setting goes to the ``footprint`` block under ``stages``, and any other
-    to the ``hysplit`` block under ``models``; the config's own keys
+    For a test that needs a config and is not about its layout. A setting
+    goes to the ``hysplit`` block under ``models``; the config's own keys
     (``mets``, ``variants``, ``execution``, ``output``, and ``models`` and
-    ``stages`` themselves) stay as given. A variant's footprint settings
-    go under its ``stages``. A variant left with neither a grid nor a
-    geometry, or one that says ``grid: None``, makes particles only.
-    ``n_hours`` is -24 unless given, when the settings give no ``models``.
+    ``stages`` themselves) stay as given. ``n_hours`` is -24 unless given,
+    when the settings give no ``models``.
     """
     if "models" not in settings:
         settings.setdefault("n_hours", -24)
     config = {k: v for k, v in settings.items() if k in _CONFIG_KEYS}
-    footprint = {k: v for k, v in settings.items() if k in _FOOTPRINT_KEYS}
-    model = {
-        k: v for k, v in settings.items() if k not in _CONFIG_KEYS | _FOOTPRINT_KEYS
-    }
+    model = {k: v for k, v in settings.items() if k not in _CONFIG_KEYS}
     if model:
         config["models"] = {"hysplit": model, **config.get("models", {})}
-    variants = {
-        name: dict(spec or {}) for name, spec in config.get("variants", {}).items()
-    }
-    own = {
-        name: {k: spec.pop(k) for k in list(spec) if k in _FOOTPRINT_KEYS}
-        for name, spec in variants.items()
-    }
-    if not (footprint or any(own.values())):
-        return config
-    if footprint.get("grid") is None:
-        footprint.pop("grid", None)
-    config["stages"] = {"footprint": {"class": FOOTPRINT_STAGE, **footprint}}
-    for name, spec in variants.items():
-        merged = {**footprint, **own[name]}
-        if merged.get("grid") is None and merged.get("geometry") is None:
-            spec["stages"] = {"footprint": None}
-        elif own[name]:
-            spec["stages"] = {"footprint": own[name]}
-    config["variants"] = variants
     return config
 
 
@@ -206,7 +179,6 @@ def make_variant(
     *,
     transport: TransportConfig | None = None,
     met_config: MetConfig | None = None,
-    footprint: FootprintConfig | None = None,
     realizations: int | None = None,
     **fields: Any,
 ) -> Variant:
@@ -227,18 +199,9 @@ def make_variant(
         transport=transport,
         model="hysplit",
         realizations=realizations,
-        **with_footprint(footprint),
+        stages={},
+        stage_classes={},
     )
-
-
-def with_footprint(footprint: FootprintConfig | None) -> dict[str, Any]:
-    """Return the ``stages`` and ``stage_classes`` of a variant with the footprint stage under *footprint*, or without it."""
-    if footprint is None:
-        return {"stages": {}, "stage_classes": {}}
-    return {
-        "stages": {"footprint": footprint},
-        "stage_classes": {"footprint": FOOTPRINT_STAGE},
-    }
 
 
 def make_release(
@@ -258,7 +221,7 @@ def make_release(
     )
 
 
-#: Stand-ins for HYSPLIT's data tables, which PYSTILT does not include. The
+#: Stand-ins for HYSPLIT's data tables, which runtraj does not include. The
 #: sixth line of ASCDATA.CFG says where the tables are, as HYSPLIT's own does.
 STAND_IN_TABLES = {
     "ASCDATA.CFG": (

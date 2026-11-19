@@ -2,7 +2,7 @@
 Meteorology for any transport model: the time a run covers (:func:`run_window`), and wind-error statistics.
 
 A transport model reads its meteorology itself, from a met config of its
-own: HYSPLIT's is :class:`stilt.transport.hysplit.MetConfig`.
+own: HYSPLIT's is :class:`runtraj.transport.hysplit.MetConfig`.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import ArrayLike
 
-from stilt.spatial import haversine_km
+from runtraj.spatial import haversine_km
 
 
 def _time(value: Any) -> pd.Timestamp:

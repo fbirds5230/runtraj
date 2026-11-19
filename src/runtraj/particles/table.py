@@ -1,9 +1,5 @@
 """
 The particle table: its columns, particle files, and release heights.
-
-What STILT computes from a particle table before gridding it, ``foot`` for a
-model that writes none and the near-field plume correction, is in
-:mod:`stilt.footprint.foot`.
 """
 
 from __future__ import annotations
@@ -20,8 +16,8 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from stilt._paths import location, readable, write_parquet
-from stilt.releases import (
+from runtraj._paths import location, readable, write_parquet
+from runtraj.releases import (
     ColumnRelease,
     MultiPointRelease,
     Release,
@@ -31,7 +27,7 @@ from stilt.releases import (
 if TYPE_CHECKING:
     from upath import UPath
 
-    from stilt._paths import Location
+    from runtraj._paths import Location
 
 
 #: The columns every particle table has, as a particle file stores them:
@@ -71,7 +67,7 @@ class ParticleMetadata(NamedTuple):
     settings : dict
         The run's settings, as its folder's ``_settings.yaml`` records them:
         the transport model's settings, the met's, the model build, and
-        whether it is an ensemble. :func:`stilt.identity.transport_from_settings`
+        whether it is an ensemble. :func:`runtraj.identity.transport_from_settings`
         rebuilds the transport model's config from it.
     met_files : list of Path
         Meteorology files the run read.
@@ -111,7 +107,7 @@ def check_particles(particles: pd.DataFrame, need: Iterable[str] = ()) -> None:
         raise ValueError(
             f"The particle table has no {', '.join(repr(m) for m in missing)} "
             f"column{'s' if len(missing) > 1 else ''}. Every particle table has "
-            f"{', '.join(PARTICLE_SCHEMA.names)} (stilt.particles.PARTICLE_SCHEMA)."
+            f"{', '.join(PARTICLE_SCHEMA.names)} (runtraj.particles.PARTICLE_SCHEMA)."
         )
 
 
@@ -131,12 +127,7 @@ def _need_foot(particles: pd.DataFrame) -> None:
     if "foot" in particles.columns:
         return
     raise ValueError(
-        "The particle table has no 'foot' column: the transport model wrote "
-        "none, and the footprint stage stores the foot it computes nowhere. "
-        "stilt.footprint.footprint_particles(particles, config, met_files) adds "
-        "the one the footprint uses, from the met files the run read "
-        "(stilt.particles.particles_metadata(path).met_files), with the "
-        "variant's footprint settings (sim.variant.stages['footprint'])."
+        "The particle table has no 'foot' column: the transport model wrote none."
     )
 
 
@@ -148,26 +139,28 @@ def particles_metadata(path: str | Path | UPath) -> ParticleMetadata:
     ------
     ValueError
         If the file records no run settings, as files written before
-        PYSTILT recorded them do.
+        runtraj recorded them do.
 
     Examples
     --------
-    >>> meta = stilt.particles.particles_metadata(sim.particles_path)  # doctest: +SKIP
+    >>> meta = runtraj.particles.particles_metadata(
+    ...     sim.particles_path
+    ... )  # doctest: +SKIP
     >>> meta.settings["model"]  # doctest: +SKIP
     {'name': 'hysplit', 'version': 'v5.1.0'}
     """
     with readable(path) as source:
         meta = pq.read_schema(source).metadata or {}
-    if b"stilt:settings" not in meta:
+    if b"runtraj:settings" not in meta:
         raise ValueError(
             f"{path} records no run settings. It was written before particle "
-            "files recorded them; rewrite its output directory (see #132)."
+            "files recorded them; rewrite its output directory (see PYSTILT#132)."
         )
-    realization = meta.get(b"stilt:realization")
+    realization = meta.get(b"runtraj:realization")
     return ParticleMetadata(
         release=stored_release(meta, path),
-        settings=json.loads(meta[b"stilt:settings"]),
-        met_files=[Path(p) for p in json.loads(meta[b"stilt:met_files"])],
+        settings=json.loads(meta[b"runtraj:settings"]),
+        met_files=[Path(p) for p in json.loads(meta[b"runtraj:met_files"])],
         realization=None if realization is None else int(realization),
     )
 
@@ -187,11 +180,11 @@ def stored_release(meta: Mapping[bytes, bytes], path: str | Path | UPath) -> Rel
     ------
     ValueError
         If the file was written before the receptor was renamed the release,
-        so it records ``stilt:receptor`` and not ``stilt:release``, or
+        so it records ``stilt:receptor`` and not ``runtraj:release``, or
         records neither.
     """
-    if b"stilt:release" in meta:
-        return Release.from_json(meta[b"stilt:release"])
+    if b"runtraj:release" in meta:
+        return Release.from_json(meta[b"runtraj:release"])
     if b"stilt:receptor" in meta:
         raise ValueError(OLD_FILE.format(what=f"The file {path}"))
     raise ValueError(f"{path} does not record its release.")
@@ -231,8 +224,8 @@ def read_particles(
 
     Examples
     --------
-    >>> particles = stilt.read_particles(sim.particles_path)  # doctest: +SKIP
-    >>> particles.stilt.endpoints()  # doctest: +SKIP
+    >>> particles = runtraj.read_particles(sim.particles_path)  # doctest: +SKIP
+    >>> particles.runtraj.endpoints()  # doctest: +SKIP
     """
     with readable(path) as source:
         pf = pq.ParquetFile(source)
@@ -261,7 +254,7 @@ def particles_from_table(table: pa.Table, time: bool = True) -> pd.DataFrame:
     """
     Return a table of many releases' particles as one DataFrame.
 
-    The table is what :meth:`stilt.output.Output.table` reads: a
+    The table is what :meth:`runtraj.output.Output.table` reads: a
     ``release`` column, the stored particle columns, and ``date``. The
     result has ``release`` first, ``age`` and ``particle`` as float64, and
     ``time`` (UTC) rebuilt from each release's time and ``age`` (unless
@@ -318,7 +311,7 @@ def write_particles(
         Release the particles were released from.
     settings : mapping
         The run's settings, as its folder records them
-        (:attr:`stilt.config.Variant.run_settings`).
+        (:attr:`runtraj.config.Variant.run_settings`).
     met_files : list of Path
         Meteorology files the run used.
     metadata : dict, optional
@@ -351,9 +344,9 @@ def write_particles(
         ),
     )
     meta = {
-        b"stilt:release": release.to_json().encode(),
-        b"stilt:settings": json.dumps(dict(settings)).encode(),
-        b"stilt:met_files": json.dumps([str(p) for p in met_files]).encode(),
+        b"runtraj:release": release.to_json().encode(),
+        b"runtraj:settings": json.dumps(dict(settings)).encode(),
+        b"runtraj:met_files": json.dumps([str(p) for p in met_files]).encode(),
         **(metadata or {}),
     }
     table = table.replace_schema_metadata(meta)

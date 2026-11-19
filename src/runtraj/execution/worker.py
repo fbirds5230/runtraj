@@ -7,13 +7,13 @@ particles, so it groups them: the transport model runs once per group where the
 particles are missing (:func:`run_particles`), then each variant's stages
 make their files from the particles in memory (:func:`run_stages`). A stage
 is the class its ``stages`` block of ``config.yaml`` names
-(:class:`stilt.stages.Stage`), the footprint among them, so this module
+(:class:`runtraj.stages.Stage`), the footprint among them, so this module
 imports none.
 A failure is recorded with the simulation and the worker goes on, except
 a connection or I/O error that a retry may get past, which is not recorded as a
 failure: the simulation stays unfinished and the next run does it again.
 :func:`run_releases` runs a list of releases in this process or a
-process pool. A :class:`~stilt.Simulation` itself runs nothing; these
+process pool. A :class:`~runtraj.Simulation` itself runs nothing; these
 functions write through its output directory.
 """
 
@@ -38,16 +38,16 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from stilt._transient import is_transient
-from stilt.exceptions import SimulationError, WorkerDied
-from stilt.execution.config import ExecutionConfig
-from stilt.simulation import Simulation
-from stilt.stages import reads
-from stilt.transport import get_model, run_model, run_model_many
+from runtraj._transient import is_transient
+from runtraj.exceptions import SimulationError, WorkerDied
+from runtraj.execution.config import ExecutionConfig
+from runtraj.simulation import Simulation
+from runtraj.stages import reads
+from runtraj.transport import get_model, run_model, run_model_many
 
 if TYPE_CHECKING:
-    from stilt._paths import Location
-    from stilt.project import Project
+    from runtraj._paths import Location
+    from runtraj.project import Project
 
 logger = logging.getLogger(__name__)
 
@@ -100,16 +100,16 @@ def _failed(sim: Simulation, stage: str, error: Exception) -> str:
 
     *stage* is ``particles`` for the transport model run, or the name of
     the stage that failed. The record goes in the logs of the folder whose
-    result failed (:meth:`stilt.output.Output.record_failure`): a particles
+    result failed (:meth:`runtraj.output.Output.record_failure`): a particles
     failure covers every variant on those particles, a stage's failure
     every variant with that stage's settings on them. ``reason`` is the
     error's short cause, or its class
     for an error without one. An expected failure (a
-    :class:`~stilt.exceptions.SimulationError`) logs one line; any other
+    :class:`~runtraj.exceptions.SimulationError`) logs one line; any other
     error logs, and records, its traceback.
 
     A connection or I/O error that a retry may get past
-    (:func:`stilt._transient.is_transient` says so: a bucket that stopped answering
+    (:func:`runtraj._transient.is_transient` says so: a bucket that stopped answering
     while the result was written) is not a failure of the simulation, so
     nothing is recorded (:func:`_unfinished`). A ``SimulationError`` always is one.
     """
@@ -145,7 +145,7 @@ def _unfinished(sim: Simulation, stage: str, error: Exception) -> str:
     Leave *sim* unfinished after a connection or I/O error at *stage*, and return one line saying so.
 
     No failure record is written, so the simulation is ``pending``, or
-    ``interrupted`` once its particles run started, and ``stilt run`` exits
+    ``interrupted`` once its particles run started, and ``runtraj run`` exits
     with 3. A failure record from an earlier attempt is removed, so it does
     not stand for this one; when the output cannot be reached to do that,
     the old record stays until a run writes the result.
@@ -187,7 +187,7 @@ def run_particles(
     Run the transport model for a simulation and write its particles to the output directory.
 
     The transport model the variant names runs in *workdir*
-    (:func:`stilt.transport.run_model`), with the variant's met. Its log is written to the output
+    (:func:`runtraj.transport.run_model`), with the variant's met. Its log is written to the output
     directory whether the run succeeds or fails. The working directory is
     then removed, unless the run failed or *keep_workdir* is set, in which
     case it is copied under the output directory's ``scratch/`` first.
@@ -214,7 +214,7 @@ def run_particles(
     SimulationError
         As the transport model raises it (with a ``reason``), or with
         ``reason`` ``NO_PARTICLE_DATA`` when the model wrote no particles.
-        :class:`~stilt.exceptions.MeteorologyError` when the met files are
+        :class:`~runtraj.exceptions.MeteorologyError` when the met files are
         missing.
     """
     output, rid = sim.output, sim.release.id
@@ -273,7 +273,7 @@ def _log_start(sim: Simulation) -> None:
     sim.output.write_log(
         sim.variant,
         sim.release.id,
-        f"PYSTILT started this run at {started} on {socket.gethostname()}; "
+        f"runtraj started this run at {started} on {socket.gethostname()}; "
         "the transport model's log replaces this line when the run ends.\n",
         sim.realization,
     )
@@ -287,7 +287,7 @@ def run_particles_batch(
 
     *sims* are simulations of one variant and realization, one per release,
     so they share the transport settings. The model's one call
-    (:func:`stilt.transport.run_model_many`) gives each release its
+    (:func:`runtraj.transport.run_model_many`) gives each release its
     particles or an error: the particles and the log are written, and a
     failure is recorded with its simulation.
 
@@ -374,7 +374,7 @@ def run_stage(sim: Simulation, name: str) -> None:
     Run one stage of a simulation, which writes its file to the output directory.
 
     The stage is the one the variant's ``stages`` block names
-    (:meth:`stilt.stages.Stage.run`), run with the variant's settings of
+    (:meth:`runtraj.stages.Stage.run`), run with the variant's settings of
     it. A file the stage made before is removed first, and the stage writes
     under a temporary name beside the file's own, which is moved into place
     when the stage returns. So a stage that fails, or is cut off part-way,
@@ -412,7 +412,7 @@ def run_stages(
     """
     Run the stages of the simulations of one release that share particles, and return what failed.
 
-    Each variant's stages run in the order :attr:`stilt.config.Variant.stage_order`
+    Each variant's stages run in the order :attr:`runtraj.config.Variant.stage_order`
     gives, a stage after the ones it reads. A stage file that exists is
     kept, unless something it is made from was made again in this call:
     the particles (*remade*), or the file of a stage it reads. Then the old
@@ -496,7 +496,7 @@ def run_release(
     variant's stages make their files from those particles in memory
     (:func:`run_stages`), the footprint among them. A stage's file is made
     again whenever what it is made from was, so it always matches it.
-    A failure is recorded with the simulation (:attr:`stilt.Simulation.failure`)
+    A failure is recorded with the simulation (:attr:`runtraj.Simulation.failure`)
     and does not stop the others; a failed transport model run fails every variant
     of its group. A ``KeyboardInterrupt``, such as a preempted job, stops
     the release and is raised again.
@@ -509,7 +509,7 @@ def run_release(
         Release to run.
     compute_root : Path
         Directory the workdirs are made in, a new one for each run, as
-        :func:`~stilt.execution.runner.resolve_compute_root` returns it.
+        :func:`~runtraj.execution.runner.resolve_compute_root` returns it.
     execution : ExecutionConfig, optional
         Execution settings, for ``timeout`` and ``keep_workdir``. Defaults
         to the project's.
@@ -525,7 +525,7 @@ def run_release(
     list of str
         One line per failure, empty when every simulation is complete. The
         failures are also recorded in the output directory, which is where
-        :meth:`stilt.Project.status` reads them.
+        :meth:`runtraj.Project.status` reads them.
     """
     execution = execution if execution is not None else project.config.execution
     problems: list[str] = []
@@ -674,7 +674,7 @@ def _init_pool_worker(
     *rows* are the release rows the parent took in place of
     ``releases.csv`` (a Slurm task's), if any.
     """
-    from stilt.project import Project
+    from runtraj.project import Project
 
     global _POOL_PROJECT, _POOL_COMPUTE_ROOT, _POOL_EXECUTION, _POOL_SKIP
     signal.signal(signal.SIGTERM, _exit_worker)
@@ -716,7 +716,7 @@ def _check_workers_can_start(cpus: int) -> None:
     the calling script again, as ``__mp_main__``. A script that runs the
     project at the top level, without ``if __name__ == "__main__":``, fails
     in every worker. The pool would then stop with
-    :class:`~stilt.exceptions.WorkerDied`, which blames memory, or with a
+    :class:`~runtraj.exceptions.WorkerDied`, which blames memory, or with a
     bare connection error (``forkserver``). Starting one worker first turns
     that into an error that shows the fix. ``fork`` runs no script again,
     so it skips the check.
@@ -741,9 +741,9 @@ def _check_workers_can_start(cpus: int) -> None:
         "that failed; the traceback above shows where. A script that runs a "
         "project needs its code under a guard:\n\n"
         '    if __name__ == "__main__":\n'
-        "        project = stilt.Project(...)\n"
+        "        project = runtraj.Project(...)\n"
         "        project.run()\n\n"
-        "`stilt run --cpus N` and a `cpus` of 1 need no guard."
+        "`runtraj run --cpus N` and a `cpus` of 1 need no guard."
     ) from failure
 
 
@@ -776,7 +776,7 @@ def _a_worker_died(executor: ProcessPoolExecutor) -> bool:
     the second worker after waking the thread that watches the workers, which
     may already have made its list. If that worker is the one killed, the pool
     learns of it only when another release finishes, which can be hours later
-    (#400). Workers stay alive until the loop in :func:`_run_in_pool` ends, so
+    (PYSTILT#400). Workers stay alive until the loop in :func:`_run_in_pool` ends, so
     one that is not alive has died.
     """
     return any(not process.is_alive() for process in list(executor._processes.values()))
@@ -798,7 +798,7 @@ def _run_in_pool(
     release given to it is a release in progress. If a worker dies without
     Python's say (SIGKILL, as the out-of-memory killer sends), the pool cannot say which
     release it held, and it cannot be used again: the run stops with
-    :class:`~stilt.exceptions.WorkerDied`, naming every release in progress.
+    :class:`~runtraj.exceptions.WorkerDied`, naming every release in progress.
     """
     total = len(release_ids)
     _check_workers_can_start(execution.cpus)
@@ -891,7 +891,7 @@ def run_releases(
     pod, stops the batch: the transport model runs in progress are ended, the workers exit, and this logs
     how many releases had finished and returns. What finished is in the output directory, with a failure
     record for each simulation that failed; a run that was cut off leaves only its log line, so it is
-    ``interrupted`` in :meth:`stilt.Project.status`.
+    ``interrupted`` in :meth:`runtraj.Project.status`.
 
     An error that escapes a release's own handling (:func:`run_release` records a failure
     for one and goes on; this is anything outside that, such as a shared resource that stops
@@ -905,7 +905,7 @@ def run_releases(
         Releases to run.
     compute_root : Path
         Directory the workdirs are made in, a new one for each run, as
-        :func:`~stilt.execution.runner.resolve_compute_root` returns it.
+        :func:`~runtraj.execution.runner.resolve_compute_root` returns it.
     execution : ExecutionConfig, optional
         Execution settings: ``cpus`` is the number of worker processes (1
         runs in this process), and ``timeout`` and ``keep_workdir`` apply

@@ -1,9 +1,9 @@
 """
 A simulation, one release run under one variant, and where its results are.
 
-This is the particle part, which the workers and the stages use.
-:class:`stilt.Simulation` (:mod:`stilt.stilt_simulation`), which a STILT
-project gives you, adds the reads of what STILT makes from the particles.
+The workers and the stages use it. A package that adds a stage can subclass
+:class:`Simulation` with the reads of what its stage makes, as PYSTILT's
+``stilt.Simulation`` does for the footprint.
 """
 
 from __future__ import annotations
@@ -16,14 +16,14 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from stilt.output import Output, completed
-from stilt.particles import read_particles
-from stilt.releases import Release
-from stilt.stages import reads
+from runtraj.output import Output, completed
+from runtraj.particles import read_particles
+from runtraj.releases import Release
+from runtraj.stages import reads
 
 if TYPE_CHECKING:
-    from stilt._paths import Location
-    from stilt.config import Variant
+    from runtraj._paths import Location
+    from runtraj.config import Variant
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +37,10 @@ class Simulation:
     directory its results are in. From those it knows where its particles,
     the file of each stage (:meth:`path`), and its log are, whether they
     exist (:meth:`has`, :attr:`is_complete`), and how to read them. It runs
-    nothing itself; the workers in :mod:`stilt.execution` run the transport
+    nothing itself; the workers in :mod:`runtraj.execution` run the transport
     model and the stages.
 
-    :class:`stilt.Simulation` subclasses it with the reads of what STILT
-    makes from the particles: the footprint, the background, and the
-    transport error. You rarely build one yourself. Get it from a project instead, as in
+    You rarely build one yourself. Get it from a project instead, as in
     ``project.simulation(release_id, "hrrr")``.
 
     Parameters
@@ -96,7 +94,7 @@ class Simulation:
 
     def __eq__(self, other: object) -> bool:
         # One simulation whatever its class: the workers build this class and
-        # stilt.Project the subclass, which adds only reads.
+        # runtraj.Project the subclass, which adds only reads.
         if not isinstance(other, Simulation):
             return NotImplemented
         mine = tuple(getattr(self, f.name) for f in fields(self))
@@ -180,7 +178,7 @@ class Simulation:
         Whether every expected result exists.
 
         That is the particles, and the file of every stage the variant
-        uses, such as the footprint. It is :func:`stilt.output.completed`,
+        uses, such as the footprint. It is :func:`runtraj.output.completed`,
         the one definition of done, for one release, from a file check for
         each.
         """

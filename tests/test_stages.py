@@ -1,13 +1,11 @@
-"""The stage interface, held with two toy stages that import nothing from the footprint."""
-
 from __future__ import annotations
 
 import pytest
 
-from stilt.config import ProjectConfig
-from stilt.exceptions import MissingClass, StiltError
-from stilt.identity import settings_hash, stage_hash
-from stilt.stages import check_stage, get_stage, ordered, reads
+from runtraj.config import ProjectConfig
+from runtraj.exceptions import MissingClass, RuntrajError
+from runtraj.identity import settings_hash, stage_hash
+from runtraj.stages import check_stage, get_stage, ordered, reads
 
 from .fixtures.factories import make_met_config
 from .fixtures.stages import (
@@ -38,11 +36,6 @@ def test_a_stage_is_made_from_its_import_path():
     assert (stage.name, stage.suffix, reads(stage)) == ("count", ".txt", ())
     assert reads(get_stage(DOUBLE)) == ("count",)
     assert get_stage(COUNT) is stage  # made once
-
-
-def test_a_stage_must_be_named_by_an_import_path():
-    with pytest.raises(ValueError, match="import path of its class.*not 'footprint'"):
-        get_stage("footprint")
 
 
 def test_a_class_without_the_members_of_a_stage_is_refused():
@@ -109,7 +102,7 @@ def test_a_class_whose_package_is_not_installed_names_the_package():
         "nopkg_for_this_test and run this again."
     )
     assert isinstance(error.value, ImportError)
-    assert isinstance(error.value, StiltError)
+    assert isinstance(error.value, RuntrajError)
 
 
 def test_a_class_its_package_does_not_have_says_so():

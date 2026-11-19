@@ -11,7 +11,7 @@ it prints), and whether it is an ensemble (the realizations of one
 share a folder, a ``realization=k`` partition each, so the number is not
 in the hash). A
 stage's settings are the record the stage itself writes
-(:meth:`stilt.stages.Stage.settings`), hashed with the particles' hash and
+(:meth:`runtraj.stages.Stage.settings`), hashed with the particles' hash and
 the hash of each stage it reads (:func:`stage_hash`); the footprint's are
 its footprint config, with the grid it is computed on, and the hash of the
 geometry the grid was derived for.
@@ -31,7 +31,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from stilt.transport import ModelInfo, TransportConfig, get_model
+from runtraj.transport import ModelInfo, TransportConfig, get_model
 
 
 def canonical(value: Any) -> Any:
@@ -149,12 +149,12 @@ def read_run_settings(stored: Mapping[str, Any]) -> dict[str, Any]:
 # -- what a result file records -------------------------------------------------
 
 
-def pystilt_version() -> str:
-    """Return the installed PYSTILT version, as ``stilt.__version__`` does."""
+def runtraj_version() -> str:
+    """Return the installed runtraj version, as ``runtraj.__version__`` does."""
     from importlib.metadata import PackageNotFoundError, version
 
     try:
-        return version("pystilt")
+        return version("runtraj")
     except PackageNotFoundError:
         return "0+unknown"
 
@@ -164,17 +164,17 @@ def file_stamp(digest: str, realization: int | None = None) -> dict[bytes, bytes
     Return what a result file records besides its contents, as Parquet file metadata.
 
     Its folder's settings hash (*digest*: ``variant.particles_hash``, or
-    ``variant.stage_hashes[name]`` for a stage's file), the PYSTILT
+    ``variant.stage_hashes[name]`` for a stage's file), the runtraj
     version, and, for an ensemble, its realization number. A particle file
     carries it, and so does a footprint; a stage of your own may write it
     too, so that its files say what made them.
     """
     stamp = {
-        b"stilt:hash": digest.encode(),
-        b"stilt:pystilt": pystilt_version().encode(),
+        b"runtraj:hash": digest.encode(),
+        b"runtraj:version": runtraj_version().encode(),
     }
     if realization is not None:
-        stamp[b"stilt:realization"] = str(realization).encode()
+        stamp[b"runtraj:realization"] = str(realization).encode()
     return stamp
 
 
@@ -193,7 +193,7 @@ def stage_hash(
     A stage's results are named by what they were made from and with: the
     particles' hash (*particles_hash*), the hash of each stage it reads
     (*reads*, by the stage's name), and the stage's own settings record
-    (:meth:`stilt.stages.Stage.settings`). So results made from other
+    (:meth:`runtraj.stages.Stage.settings`). So results made from other
     particles, or from another stage's results under other settings, never
     share a folder.
 
@@ -210,7 +210,7 @@ def stage_hash(
 __all__ = [
     "canonical",
     "file_stamp",
-    "pystilt_version",
+    "runtraj_version",
     "read_run_settings",
     "run_settings",
     "settings_hash",

@@ -17,12 +17,12 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
-from stilt._paths import absolute, atomic_path
-from stilt._transient import is_transient
-from stilt.exceptions import MeteorologyError
-from stilt.identity import settings_hash
-from stilt.meteorology import run_window
-from stilt.spatial import Bounds
+from runtraj._paths import absolute, atomic_path
+from runtraj._transient import is_transient
+from runtraj.exceptions import MeteorologyError
+from runtraj.identity import settings_hash
+from runtraj.meteorology import run_window
+from runtraj.spatial import Bounds
 
 from .catalog import Catalog, Cover, catalog_path, is_stray
 
@@ -221,7 +221,7 @@ class Met:
     The meteorology files of one met, found locally or downloaded.
 
     Without ``download``, files are found under ``directory`` by what their
-    headers say they hold (:class:`~stilt.transport.hysplit.catalog.Catalog`).
+    headers say they hold (:class:`~runtraj.transport.hysplit.catalog.Catalog`).
     With ``download`` set to an ARL archive name, arlmet downloads the files,
     cropping them as it goes when subgridding is on. Local files are cropped with
     ``arlmet.extract_subset`` into :attr:`crop_dir`, which all simulations
@@ -331,7 +331,7 @@ class Met:
             raise ImportError(
                 f"{exc}\n\n"
                 "Downloading meteorology requires the download extra. "
-                "Install with: pip install pystilt[download]"
+                "Install with: pip install runtraj[download]"
             ) from exc
 
         if not files:
@@ -758,7 +758,7 @@ class Met:
         Only a file that is not there is a failure to report. Any other
         error stops the fetch and is raised, whether a retry may get past it
         (a busy archive, a connection that failed) or not (a denied request,
-        a full disk), so that ``stilt fetch`` can exit with 3 or 4.
+        a full disk), so that ``runtraj fetch`` can exit with 3 or 4.
 
         Parameters
         ----------

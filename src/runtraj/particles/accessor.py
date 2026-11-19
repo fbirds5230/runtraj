@@ -1,8 +1,8 @@
 """
-The methods of the ``.stilt`` accessor on a particle table that need only the particles: endpoints, grid exits, export, plots.
+The ``.runtraj`` accessor on a particle table: endpoints, grid exits, export, plots.
 
-:class:`stilt.stilt_particles.ParticlesAccessor` adds STILT's
-``enhancement`` and is the class registered as ``.stilt``.
+Importing :mod:`runtraj` registers :class:`ParticlesAccessor` as
+``particles.runtraj`` on every pandas DataFrame.
 """
 
 from __future__ import annotations
@@ -13,12 +13,12 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from stilt.particles._cf import to_cf_trajectories
-from stilt.spatial import _grid_cell_starts
+from runtraj.particles._cf import to_cf_trajectories
+from runtraj.spatial import _grid_cell_starts
 
 if TYPE_CHECKING:
-    from stilt.spatial import Grid
-    from stilt.visualization import ParticlesPlotAccessor
+    from runtraj.spatial import Grid
+    from runtraj.visualization import ParticlesPlotAccessor
 
 #: The edges of a grid, in the order of the columns of ``_edge_crossings``.
 _EDGES = np.array(["n", "e", "s", "w"])
@@ -61,20 +61,21 @@ def _wrap_degrees(difference: np.ndarray) -> np.ndarray:
     return (difference + 180.0) % 360.0 - 180.0
 
 
+@pd.api.extensions.register_dataframe_accessor("runtraj")
 class ParticlesAccessor:
     """
-    The methods on a particle table that need only the particles, as ``particles.stilt``.
+    runtraj's methods on a particle table, as ``particles.runtraj``.
 
-    :class:`stilt.stilt_particles.ParticlesAccessor` subclasses it with
-    ``enhancement`` and is what ``particles.stilt`` is.
+    A package can subclass it and register the subclass under its own
+    name, as PYSTILT does for ``particles.stilt``.
 
     Examples
     --------
     >>> particles = sim.particles  # doctest: +SKIP
-    >>> particles.stilt.endpoints()  # doctest: +SKIP
-    >>> particles.stilt.grid_exits(grid)  # doctest: +SKIP
-    >>> particles.stilt.to_cf_trajectories()  # doctest: +SKIP
-    >>> particles.stilt.plot.map()  # doctest: +SKIP
+    >>> particles.runtraj.endpoints()  # doctest: +SKIP
+    >>> particles.runtraj.grid_exits(grid)  # doctest: +SKIP
+    >>> particles.runtraj.to_cf_trajectories()  # doctest: +SKIP
+    >>> particles.runtraj.plot.map()  # doctest: +SKIP
     """
 
     def __init__(self, particles: pd.DataFrame) -> None:
@@ -133,7 +134,7 @@ class ParticlesAccessor:
 
         Parameters
         ----------
-        grid : stilt.Grid
+        grid : runtraj.Grid
             The footprint grid, such as ``project.variants["hrrr"].stages["footprint"].grid``.
 
         Returns
@@ -152,8 +153,8 @@ class ParticlesAccessor:
         One particle that leaves a grid by its east edge, between two rows:
 
         >>> import pandas as pd
-        >>> import stilt
-        >>> grid = stilt.Grid(
+        >>> import runtraj
+        >>> grid = runtraj.Grid(
         ...     xmin=-112, xmax=-110, ymin=40, ymax=42, xres=0.5, yres=0.5
         ... )
         >>> particles = pd.DataFrame(
@@ -165,7 +166,7 @@ class ParticlesAccessor:
         ...         "zagl": [10.0, 20.0, 30.0],
         ...     }
         ... )
-        >>> particles.stilt.grid_exits(grid)
+        >>> particles.runtraj.grid_exits(grid)
            particle edge    lon   lat  zagl   age
         0         1    e -110.0  41.0  25.0 -90.0
         """
@@ -290,7 +291,7 @@ class ParticlesAccessor:
             Dimensions ``(trajectory, obs)``. The coordinates are
             ``trajectory`` (the particle number), ``time``, ``lon``, ``lat``
             and ``zagl``. ``age`` and every other numeric column of the table
-            are data variables, with units for the columns PYSTILT and
+            are data variables, with units for the columns runtraj and
             HYSPLIT write.
 
         Raises
@@ -316,7 +317,7 @@ class ParticlesAccessor:
         >>> particles["time"] = pd.Timestamp("2024-01-15 18:00") + pd.to_timedelta(
         ...     particles["age"], unit="min"
         ... )
-        >>> ds = particles.stilt.to_cf_trajectories()
+        >>> ds = particles.runtraj.to_cf_trajectories()
         >>> dict(ds.sizes)
         {'trajectory': 2, 'obs': 3}
         >>> ds.attrs["featureType"]
@@ -330,7 +331,7 @@ class ParticlesAccessor:
 
     @property
     def plot(self) -> ParticlesPlotAccessor:
-        """Plotting methods, such as ``particles.stilt.plot.map()``."""
-        from stilt.visualization import ParticlesPlotAccessor
+        """Plotting methods, such as ``particles.runtraj.plot.map()``."""
+        from runtraj.visualization import ParticlesPlotAccessor
 
         return ParticlesPlotAccessor(self._particles)

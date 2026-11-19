@@ -1,4 +1,4 @@
-"""Shared fixtures for the PYSTILT test suite."""
+"""Shared fixtures for the runtraj test suite."""
 
 import datetime as dt
 import os
@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from stilt.config import ProjectConfig
-from stilt.releases import ColumnRelease, MultiPointRelease, PointRelease
-from stilt.spatial import Grid
+from runtraj.config import ProjectConfig
+from runtraj.releases import ColumnRelease, MultiPointRelease, PointRelease
+from runtraj.spatial import Grid
 from tests.fixtures.factories import blocks
 
 from .fixtures.factories import make_hysplit_dir, make_met_config
@@ -20,8 +20,8 @@ from .fixtures.factories import make_hysplit_dir, make_met_config
 
 integration = pytest.mark.integration
 
-# Parametrized fixtures that run HYSPLIT (and STILT-R) once per parameter for
-# several tests. CI runs the integration and STILT-R tests on several workers
+# Parametrized fixtures that run HYSPLIT once per parameter for several
+# tests. CI runs the integration tests on several workers
 # (pytest-xdist, ``--dist loadgroup``); grouping keeps the tests of one parameter
 # on one worker, so each run still happens once.
 _SHARED_RUNS = ("scenario_outputs", "hysplit_run")
@@ -47,7 +47,7 @@ def pytest_collection_modifyitems(items):
 # ---------------------------------------------------------------------------
 
 #: The markers of the tests that run a real ``hycs_std``.
-_REAL_HYSPLIT = ("integration", "fidelity")
+_REAL_HYSPLIT = ("integration",)
 
 #: What the stand-in prints when it starts, as ``hycs_std`` does.
 STAND_IN_VERSION = "hysplit.v5.1.0-test"
@@ -58,7 +58,7 @@ def stand_in_hycs_std(tmp_path_factory) -> Path:
     """
     The ``exec/`` folder of a stand-in HYSPLIT, whose ``hycs_std`` prints a version and stops.
 
-    It stops as ``hycs_std`` does without ``CONTROL``. PYSTILT does not
+    It stops as ``hycs_std`` does without ``CONTROL``. runtraj does not
     include HYSPLIT, and a run's settings hold the SHA-256 of the
     ``hycs_std`` it runs and of its data tables, so the unit tests use these
     instead. The tables are in ``bdyfiles/`` beside ``exec/``.
@@ -112,7 +112,7 @@ _SLV_BBOX = (-114.0, 39.0, -110.0, 42.0)  # (west, south, east, north)
 # Individual 6h HRRR blocks needed by all 12 fidelity scenarios.
 # Each entry is a (block_start, block_end) pair that maps to exactly one file.
 # Winter blocks cover day_backward (24h), which needs blocks from the previous day.
-# Bump the GHA cache key in tests.yml, stilt-r.yml and docs.yml when you add blocks here.
+# Bump the GHA cache key in tests.yml and docs.yml when you add blocks here.
 _MET_BLOCKS: list[tuple[str, str]] = [
     # Winter 2021-01-15 (includes day_backward 24h)
     ("2021-01-14 06:00", "2021-01-14 11:59"),
@@ -132,21 +132,21 @@ def met_dir() -> Path:
     Path to HRRR ARL met files for fidelity tests.
 
     Resolution order:
-    1. STILT_TEST_MET_DIR env var — point at a pre-downloaded cache directory.
-    2. STILT_TEST_FETCH_MET=1 — download all 7 bbox-cropped 6h blocks in parallel
+    1. RUNTRAJ_TEST_MET_DIR env var — point at a pre-downloaded cache directory.
+    2. RUNTRAJ_TEST_FETCH_MET=1 — download all 7 bbox-cropped 6h blocks in parallel
        via HRRRArchive into tests/met_cache/ (gitignored; cached in CI).
        Already-present files are skipped automatically. Each block is
        downloaded whole (3.42 GB) and then cropped, so the 7 blocks download
        23.9 GB, all staged in tests/met_cache/ at once, and keep 211 MB.
     3. Otherwise skip.
     """
-    env = os.environ.get("STILT_TEST_MET_DIR")
+    env = os.environ.get("RUNTRAJ_TEST_MET_DIR")
     if env and Path(env).exists():
         # Absolute, so STILT-R (which runs in its own working directory)
         # finds the files too when the variable is a relative path.
         return Path(env).resolve()
 
-    if os.environ.get("STILT_TEST_FETCH_MET") == "1":
+    if os.environ.get("RUNTRAJ_TEST_FETCH_MET") == "1":
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         from arlmet.archives import HRRRArchive
@@ -168,8 +168,8 @@ def met_dir() -> Path:
         return _MET_CACHE
 
     pytest.skip(
-        "Met files not available. Set STILT_TEST_MET_DIR to a directory with "
-        "HRRR ARL files, or set STILT_TEST_FETCH_MET=1 to download automatically."
+        "Met files not available. Set RUNTRAJ_TEST_MET_DIR to a directory with "
+        "HRRR ARL files, or set RUNTRAJ_TEST_FETCH_MET=1 to download automatically."
     )
 
 
@@ -236,31 +236,3 @@ def model_config(tmp_path, met_config):
 @pytest.fixture
 def grid():
     return Grid(xmin=-114.0, xmax=-111.0, ymin=39.0, ymax=42.0, xres=0.01, yres=0.01)
-
-
-# ---------------------------------------------------------------------------
-# STILT-R fixtures (skip gracefully when R or STILT_R_DIR not available)
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def r_stilt_dir() -> Path:
-    """Path to a uataq/stilt R checkout. Set STILT_R_DIR env var to enable."""
-    env = os.environ.get("STILT_R_DIR")
-    if env:
-        path = Path(env)
-        if path.exists():
-            return path
-    pytest.skip(
-        "STILT_R_DIR not set or path not found. "
-        "Set STILT_R_DIR=/path/to/uataq-stilt to run STILT-R comparison tests."
-    )
-
-
-@pytest.fixture(scope="session")
-def rscript(r_stilt_dir) -> str:
-    """Path to the Rscript executable. Skips if not on PATH."""
-    exe = shutil.which("Rscript")
-    if not exe:
-        pytest.skip("Rscript not found on PATH.")
-    return exe

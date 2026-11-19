@@ -1,9 +1,9 @@
-# PYSTILT development tasks. CI runs these same recipes.
+# runtraj development tasks. CI runs these same recipes.
 
 set positional-arguments
 
-# Unit tests only: the slow suites need met files, HYSPLIT or STILT-R (AGENTS.md, Tests).
-unit := "not integration and not fidelity and not r_only"
+# Unit tests only: the integration tests need met files and HYSPLIT (AGENTS.md, Tests).
+unit := "not integration"
 
 # Show available recipes
 list:
@@ -37,7 +37,7 @@ imports:
 
 # Require docstrings on the public API
 docstr:
-    uv run docstr-coverage src/stilt --skip-magic --skip-init --fail-under 95
+    uv run docstr-coverage src/runtraj --skip-magic --skip-init --fail-under 95
 
 # Run the unit tests in parallel (up to 8 workers; `-n 0` for serial)
 test *args:
@@ -61,7 +61,7 @@ cov *args:
 # Build the HTML docs, running every example, failing on warnings
 build-docs:
     rm -rf docs/_build docs/reference/_api
-    MPLCONFIGDIR="${TMPDIR:-/tmp}/pystilt-mplconfig" uv run sphinx-build -M html docs docs/_build -W --keep-going
+    MPLCONFIGDIR="${TMPDIR:-/tmp}/runtraj-mplconfig" uv run sphinx-build -M html docs docs/_build -W --keep-going
 
 # Serve the docs at http://127.0.0.1:PORT, rebuilding on every save (Ctrl-C stops)
 docs-serve port="8000":
@@ -119,7 +119,7 @@ release version:
     if old and new <= max(old):
         sys.exit(f"{new} is not newer than the latest release, v{max(old)}.")
     PY
-    git tag --annotate "v$v" --message "PYSTILT $v"
+    git tag --annotate "v$v" --message "runtraj $v"
     git push origin "v$v"
     echo "Pushed v$v; the Publish workflow builds and releases it."
 

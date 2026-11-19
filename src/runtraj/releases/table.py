@@ -166,7 +166,7 @@ def release_rows(frame: pd.DataFrame) -> pd.DataFrame:
     clash = [c for c in frame.columns if c in ROW_COLUMNS]
     if clash:
         raise ValueError(
-            f"A releases file may not have a column named {clash}; PYSTILT uses "
+            f"A releases file may not have a column named {clash}; runtraj uses "
             "those names. Rename the column."
         )
     n = len(frame)

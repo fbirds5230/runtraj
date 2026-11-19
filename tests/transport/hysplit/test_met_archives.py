@@ -23,8 +23,8 @@ import pandas as pd
 import pytest
 from arlmet.archives import ARCHIVES, Archive, get_archive
 
-from stilt.exceptions import MeteorologyError
-from stilt.transport.hysplit import Met, MetConfig
+from runtraj.exceptions import MeteorologyError
+from runtraj.transport.hysplit import Met, MetConfig
 
 from ...fixtures.factories import write_arl_file
 

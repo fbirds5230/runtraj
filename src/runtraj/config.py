@@ -7,11 +7,11 @@ transport models, ``stages`` what is made from each simulation's results
 A model's or a stage's block holds its settings, the defaults of every
 variant that uses it, and no setting sits at the top level. Each part has
 its own config class, next to the code that uses it: the transport model's
-and its met config (such as :class:`~stilt.transport.hysplit.HysplitConfig`
-and :class:`~stilt.transport.hysplit.MetConfig`), a stage's (the
-footprint's :class:`~stilt.footprint.config.FootprintConfig`), and
-:class:`~stilt.execution.ExecutionConfig`. A stage is named by the import
-path of its class (:mod:`stilt.stages`), so this module imports none.
+and its met config (such as :class:`~runtraj.transport.hysplit.HysplitConfig`
+and :class:`~runtraj.transport.hysplit.MetConfig`), a stage's (PYSTILT's
+footprint has ``stilt.footprint.FootprintConfig``), and
+:class:`~runtraj.execution.ExecutionConfig`. A stage is named by the import
+path of its class (:mod:`runtraj.stages`), so this module imports none.
 :class:`ProjectConfig` reads the file and checks it without reading any
 other file, so a ``config.yaml`` loads offline.
 :meth:`ProjectConfig.resolve` turns each declared variant into a
@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import difflib
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path, PurePath
@@ -44,23 +44,19 @@ from pydantic import (
     model_validator,
 )
 
-from stilt._paths import absolute
-from stilt.execution.config import ExecutionConfig
-from stilt.identity import canonical, run_settings, settings_hash, stage_hash
-from stilt.stages import Stage, get_stage, ordered, reads
-from stilt.transport import (
+from runtraj._paths import absolute
+from runtraj.execution.config import ExecutionConfig
+from runtraj.identity import canonical, run_settings, settings_hash, stage_hash
+from runtraj.stages import Stage, get_stage, ordered, reads
+from runtraj.transport import (
     MODELS,
     ModelInfo,
     TransportConfig,
-    _named_by_path,
     get_model,
 )
 
 #: Pattern for variant and met names, which become directory names.
 VARIANT_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-
-#: The import path of the footprint stage, the ``class`` of its ``stages:`` block.
-FOOTPRINT_STAGE = "stilt.footprint.FootprintStage"
 
 #: Writes a block of settings given in Python (a path, a config object) as YAML can hold it.
 _JSON = TypeAdapter(dict[str, Any])
@@ -95,7 +91,7 @@ class _Declared(NamedTuple):
 
     met: str
     block: str  # the name of its model's block under models:
-    model: str  # the model, as stilt.transport.get_model names it
+    model: str  # the model, as runtraj.transport.get_model names it
     realizations: int | None
     transport: dict[str, Any]
     stages: dict[str, Any]  # each stage's checked settings, by the stage's name
@@ -136,7 +132,7 @@ class Variant:
         with absolute directories when resolved for a project.
     transport : TransportConfig
         The transport model's config, such as a
-        :class:`~stilt.transport.hysplit.HysplitConfig`, with the base seed.
+        :class:`~runtraj.transport.hysplit.HysplitConfig`, with the base seed.
     model : str
         The transport model that runs it, as ``config.yaml`` names it: a
         built-in name such as ``hysplit``, or a model class's import path.
@@ -145,8 +141,8 @@ class Variant:
         Number of realizations of an ensemble, or ``None`` for a single run.
     stages : dict
         The settings of each stage the variant uses, by the stage's name, as
-        the stage resolved them: ``stages["footprint"]`` is a
-        :class:`~stilt.footprint.FootprintConfig` with its grid. Empty for a
+        the stage resolved them: for PYSTILT's footprint,
+        ``stages["footprint"]`` is its config with its grid. Empty for a
         variant that makes particles only.
     stage_classes : dict of str to str
         The import path of each stage's class, by the stage's name.
@@ -306,7 +302,7 @@ class Variant:
         The hash that finds each stage's settings folder, by the stage's name.
 
         A stage's hash is of the particles' hash, the hash of each stage it
-        reads, and its own settings (:func:`stilt.identity.stage_hash`).
+        reads, and its own settings (:func:`runtraj.identity.stage_hash`).
         """
         if not self.stages:
             return {}  # without the particles' hash, which reads the met and the build
@@ -372,19 +368,6 @@ class ProjectConfig(BaseModel):
     >>> config = ProjectConfig(
     ...     mets={"hrrr": "/path/to/hrrr_arl"},
     ...     models={"hysplit": {"n_hours": -24, "numpar": 200}},
-    ...     stages={
-    ...         "footprint": {
-    ...             "class": "stilt.footprint.FootprintStage",
-    ...             "grid": {
-    ...                 "xmin": -113.0,
-    ...                 "xmax": -110.5,
-    ...                 "ymin": 40.0,
-    ...                 "ymax": 42.0,
-    ...                 "xres": 0.01,
-    ...                 "yres": 0.01,
-    ...             },
-    ...         }
-    ...     },
     ...     variants={"hrrr": {}, "hrrr-long": {"n_hours": -72}},
     ... )
     >>> list(config.variants)
@@ -399,7 +382,7 @@ class ProjectConfig(BaseModel):
             "Meteorology by name, such as ``hrrr``: the folder of its files, or "
             "a mapping of its settings. At least one is required. Each is "
             "checked by the met config of the transport model that reads it "
-            "(:class:`stilt.transport.hysplit.MetConfig` for HYSPLIT)."
+            "(:class:`runtraj.transport.hysplit.MetConfig` for HYSPLIT)."
         ),
     )
     models: dict[str, dict[str, Any] | None] = Field(
@@ -409,9 +392,7 @@ class ProjectConfig(BaseModel):
             "defaults of every variant that runs it. A block named "
             "``hysplit`` is that built-in model. Any other model class gets a "
             "block of any name that gives its import path as ``class``, such "
-            "as ``class: mypkg.models.MyModel``, or ``class: "
-            "stilt.stilt_r.StiltRModel`` for runs imported from STILT-R, "
-            "which cannot run. A model has "
+            "as ``class: mypkg.models.MyModel``. A model has "
             "one block. Left out, the project runs HYSPLIT with its defaults."
         ),
     )
@@ -421,9 +402,9 @@ class ProjectConfig(BaseModel):
             "What is made from each simulation's results after the transport "
             "model runs, by name, each a block that gives the stage's import "
             "path as ``class`` and then its settings. A block is named for "
-            "its stage: the footprint's is ``footprint``, with ``class: "
-            "stilt.footprint.FootprintStage`` and the footprint settings "
-            "(:class:`~stilt.footprint.FootprintConfig`). A stage runs for "
+            "its stage: the block of PYSTILT's footprint is ``footprint``, "
+            "with ``class: stilt.footprint.FootprintStage`` and the "
+            "footprint settings. A stage runs for "
             "every variant, unless the variant sets it to null. Left out, "
             "the project makes particles only."
         ),
@@ -621,16 +602,11 @@ class ProjectConfig(BaseModel):
                 **_model_settings(model),
                 **dict.fromkeys(_VARIANT_KEYS, "a variant key"),
             },
-            elsewhere=_with_depth(
-                {
-                    setting: f"a {name} setting. Write it under the variant's "
-                    f"stages: {name}:."
-                    for setting, (name, _) in _stage_settings(self.stages).items()
-                },
-                spec,
-                model,
-                "for the variant",
-            ),
+            elsewhere={
+                setting: f"a {name} setting. Write it under the variant's "
+                f"stages: {name}:."
+                for setting, name in _stage_settings(self.stages).items()
+            },
         )
         realizations = spec.pop("realizations", None)
         if realizations is not None:
@@ -719,11 +695,9 @@ class ProjectConfig(BaseModel):
         times, realization ``k`` with ``seed + k``). Each met's directories
         are made absolute; what a run records of the met is read on first
         use (:attr:`Variant.met_settings`). Each stage resolves the settings
-        a variant gives it (:meth:`stilt.stages.Stage.resolve`): it reads the
+        a variant gives it (:meth:`runtraj.stages.Stage.resolve`): it reads the
         files they name and checks that they fit the variant's model. The
-        footprint stage reads each geometry once, however many variants use
-        it, and derives the grid of a footprint given only by a geometry
-        (:meth:`stilt.Mesh.to_grid`). The transport model's build is read
+        transport model's build is read
         on first use too (:attr:`Variant.build`).
         ``project.variants`` holds the result.
 
@@ -862,7 +836,7 @@ def _model_blocks(
     *stages* is the ``stages`` block as written, to say where a stage's
     setting belongs.
 
-    The model is as :func:`stilt.transport.get_model` names it: the block's
+    The model is as :func:`runtraj.transport.get_model` names it: the block's
     ``class``, or the block's own name for a built-in model. The settings
     are checked by name here, and by value as a variant runs them.
 
@@ -897,7 +871,6 @@ def _model_blocks(
                 f"{where}: {model!r} is not a built-in transport model (they "
                 f"are {sorted(MODELS)}). A model in another package gets "
                 "class: with its import path, such as class: mypkg.models.MyModel."
-                f"{_named_by_path(model)}"
             )
         if model in block_of:
             raise ValueError(
@@ -910,7 +883,7 @@ def _model_blocks(
             settings,
             where,
             allowed=_model_settings(model),
-            elsewhere=_with_depth(_stage_places(stages), settings, model, "here"),
+            elsewhere=_stage_places(stages),
         )
         blocks[name] = (model, settings)
     return blocks
@@ -948,7 +921,8 @@ def _stage_blocks(
         path = settings.pop("class", None)
         if path is None:
             raise ValueError(
-                f"{where} names no class. The footprint is class: {FOOTPRINT_STAGE}."
+                f"{where} names no class. Write class: with the import path "
+                "of the stage's class, such as class: mypkg.stages.MyStage."
             )
         try:
             stage = get_stage(str(path))
@@ -1020,65 +994,31 @@ def _overridden(block: _StageBlock, own: dict[str, Any], where: str) -> dict[str
         raise ValueError(f"{where}: {error}") from None
 
 
-def _stage_settings(stages: Any) -> dict[str, tuple[str, bool]]:
+def _stage_settings(stages: Any) -> dict[str, str]:
     """
-    Return each stage setting a config could hold, with its stage's name and whether the config has that stage.
+    Return each stage setting a config could hold, with its stage's name.
 
-    *stages* is the ``stages`` block as written, not checked yet. A config
-    without one gets the footprint's settings, so that a footprint setting
-    written elsewhere is still recognized. A stage that cannot be imported
-    names none: its own block reports that.
+    *stages* is the ``stages`` block as written, not checked yet. A stage
+    that cannot be imported names none: its own block reports that.
     """
-    written = isinstance(stages, dict) and bool(stages)
-    blocks = stages.values() if written else [{"class": FOOTPRINT_STAGE}]
-    found: dict[str, tuple[str, bool]] = {}
-    for block in blocks:
+    found: dict[str, str] = {}
+    if not isinstance(stages, dict):
+        return found
+    for block in stages.values():
         try:
             stage = get_stage(str(block["class"]))
         except (ImportError, KeyError, TypeError, ValueError):
             continue
         for setting in stage.config_class.model_fields:
-            found.setdefault(setting, (stage.name, written))
+            found.setdefault(setting, stage.name)
     return found
 
 
 def _stage_places(stages: Any) -> dict[str, str]:
     """Return where each stage setting is written, as a sentence, by the setting's name."""
     return {
-        setting: (
-            f"a {name} setting. Write it under stages: {name}:."
-            if written
-            else f"a {name} setting. Write it under stages:, in the {name}'s "
-            f"block (class: {FOOTPRINT_STAGE})."
-        )
-        for setting, (name, written) in _stage_settings(stages).items()
-    }
-
-
-def _with_depth(
-    places: dict[str, str], settings: Mapping[str, Any], model: str, here: str
-) -> dict[str, str]:
-    """
-    Return *places* with ``footprint_depth`` also naming ``veght``, when *settings* are a model's and the model has ``veght``.
-
-    ``footprint_depth`` written with a model's settings is most likely
-    HYSPLIT's depth under its old name, and is now ``veght``, *here*: the
-    footprint's ``footprint_depth`` is the depth of a ``foot`` the footprint
-    stage computes.
-    """
-    if "footprint_depth" not in settings or "footprint_depth" not in places:
-        return places
-    if "veght" not in _model_settings(model):
-        return places
-    depth = settings["footprint_depth"]
-    return {
-        **places,
-        "footprint_depth": (
-            f"not a {model} setting. For the depth the {model} model makes its "
-            f"foot with, write veght: {depth} {here}. The footprint's "
-            "footprint_depth, the depth of a foot PYSTILT computes "
-            "(pbl_height), is " + places["footprint_depth"]
-        ),
+        setting: f"a {name} setting. Write it under stages: {name}:."
+        for setting, name in _stage_settings(stages).items()
     }
 
 
@@ -1094,7 +1034,7 @@ def _blocks_of_settings(models: Any, stages: Any = None) -> dict[str, str]:
 
     *models* and *stages* are those blocks as written, not checked yet;
     HYSPLIT's settings are named when the config gives no model that can be
-    read, and the footprint's when it gives no stage.
+    read.
     """
     blocks = models if isinstance(models, dict) and models else {"hysplit": {}}
     places: dict[str, str] = {}
@@ -1196,7 +1136,6 @@ def _check_keys(
 
 
 __all__ = [
-    "FOOTPRINT_STAGE",
     "VARIANT_NAME_RE",
     "ProjectConfig",
     "Variant",

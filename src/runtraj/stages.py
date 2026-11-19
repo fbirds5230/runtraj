@@ -2,8 +2,8 @@
 The stage interface: what is made from each simulation's results after the transport model runs.
 
 A stage makes one file per release from the particles, from the files of
-other stages, or both, and writes that file itself. The footprint is one
-(:class:`stilt.footprint.FootprintStage`). A project lists its stages under
+other stages, or both, and writes that file itself. PYSTILT's footprint is
+one (``stilt.footprint.FootprintStage``). A project lists its stages under
 ``stages:`` in ``config.yaml``, each block naming the stage's class by its
 import path, so the worker runs a stage without importing it by name and a
 stage in another package needs no registration:
@@ -31,14 +31,14 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import BaseModel
 
-from stilt._plugins import import_class
-from stilt.identity import canonical
+from runtraj._plugins import import_class
+from runtraj.identity import canonical
 
 if TYPE_CHECKING:
     import pandas as pd
 
-    from stilt._paths import Location
-    from stilt.simulation import Simulation
+    from runtraj._paths import Location
+    from runtraj.simulation import Simulation
 
 
 #: Pattern for a stage's name, which is a folder in the output directory and a column of ``project.status()``.
@@ -89,7 +89,7 @@ class Stage(Protocol):
         variant's own, as written; without it the variant's keys replace the
         block's. A property ``zsfc_reasons`` lists what goes wrong for
         releases above sea level whose particles lack the terrain height
-        ``zsfc``, a clause each, for ``stilt check`` to report when the
+        ``zsfc``, a clause each, for ``runtraj check`` to report when the
         transport model is not asked for it.
     suffix : str
         The extension of the stage's files, such as ``.parquet``, with its
@@ -155,7 +155,7 @@ class Stage(Protocol):
         """
         Return what would stop this stage for the project's releases, found without running anything.
 
-        ``project.check()`` and ``stilt check`` call it. *releases* has one
+        ``project.check()`` and ``runtraj check`` call it. *releases* has one
         row per release point (``release``, ``time``, ``longitude``,
         ``latitude``, ``altitude``, ``altitude_ref``, ``kind``). Each thing
         found is a tuple of a short name for the check, the release id (or
@@ -179,7 +179,7 @@ class Stage(Protocol):
         which the worker moves into place when this returns; a file left
         by a run that raises is removed. So a run cut off part-way leaves
         no file that counts as complete. A Parquet file may carry
-        :func:`stilt.identity.file_stamp` in its metadata, as PYSTILT's own
+        :func:`runtraj.identity.file_stamp` in its metadata, as runtraj's own
         files do.
 
         Parameters
@@ -198,8 +198,8 @@ class Stage(Protocol):
         ------
         Exception
             Any error fails the simulation at this stage: the worker records
-            it (:attr:`stilt.Simulation.failure`) and goes on. Raise a
-            :class:`~stilt.exceptions.SimulationError` with a ``reason`` for
+            it (:attr:`runtraj.Simulation.failure`) and goes on. Raise a
+            :class:`~runtraj.exceptions.SimulationError` with a ``reason`` for
             a failure you expect.
         """
         ...
@@ -222,7 +222,7 @@ def get_stage(path: str) -> Stage:
     if "." not in path:
         raise ValueError(
             f"A stage is named by the import path of its class, such as "
-            f"stilt.footprint.FootprintStage, not {path!r}."
+            f"mypkg.stages.MyStage, not {path!r}."
         )
     stage = import_class(path)()
     members = ("name", "config_class", "suffix", "resolve", "settings", "check", "run")
@@ -230,7 +230,7 @@ def get_stage(path: str) -> Stage:
     if missing:
         raise ValueError(
             f"{path} is not a stage: it has no {', '.join(missing)} "
-            "(stilt.stages.Stage lists what a stage provides)."
+            "(runtraj.stages.Stage lists what a stage provides)."
         )
     name = stage.name
     if not isinstance(name, str) or not STAGE_NAME_RE.fullmatch(name):

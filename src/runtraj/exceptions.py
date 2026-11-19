@@ -1,8 +1,8 @@
 """
-Exceptions PYSTILT raises.
+Exceptions runtraj raises.
 
-Every one is a :class:`StiltError`, so ``except stilt.StiltError`` catches
-anything PYSTILT raised on purpose. Each also subclasses the builtin that
+Every one is a :class:`RuntrajError`, so ``except runtraj.RuntrajError`` catches
+anything runtraj raised on purpose. Each also subclasses the builtin that
 describes it, so ``except RuntimeError`` or ``except FileNotFoundError``
 keeps working. Plain input checks raise builtins such as ``ValueError``.
 """
@@ -10,16 +10,16 @@ keeps working. Plain input checks raise builtins such as ``ValueError``.
 from __future__ import annotations
 
 
-class StiltError(Exception):
-    """Base class for every exception PYSTILT raises."""
+class RuntrajError(Exception):
+    """Base class for every exception runtraj raises."""
 
 
-class SimulationError(StiltError, RuntimeError):
+class SimulationError(RuntrajError, RuntimeError):
     """
     A simulation failed while it ran.
 
     The worker catches it, records it with the simulation
-    (:attr:`stilt.Simulation.failure`), and goes on to the next one.
+    (:attr:`runtraj.Simulation.failure`), and goes on to the next one.
 
     Parameters
     ----------
@@ -27,11 +27,11 @@ class SimulationError(StiltError, RuntimeError):
         What went wrong.
     reason : str, optional
         A short name for the cause, such as ``"MET_COVERAGE"`` or
-        ``"TIMEOUT"`` (:class:`stilt.transport.hysplit.FailureReason` lists
-        HYSPLIT's). ``stilt status`` counts failures by it.
+        ``"TIMEOUT"`` (:class:`runtraj.transport.hysplit.FailureReason` lists
+        HYSPLIT's). ``runtraj status`` counts failures by it.
     log : str, optional
         The transport model's log of the failed run, kept with the
-        simulation (:attr:`stilt.Simulation.log`).
+        simulation (:attr:`runtraj.Simulation.log`).
 
     Attributes
     ----------
@@ -59,19 +59,19 @@ class MeteorologyError(SimulationError):
     reason = "MET_COVERAGE"
 
 
-class HYSPLITNotFoundError(StiltError, FileNotFoundError):
+class HYSPLITNotFoundError(RuntrajError, FileNotFoundError):
     """
     The HYSPLIT executable (``hycs_std``) is missing, or cannot run.
 
     Raised when ``directory`` has no ``exec/hycs_std`` or it is not
     executable, and, without ``directory``, when no ``hycs_std`` is on
-    ``PATH``. PYSTILT does not include HYSPLIT: get it and set ``directory``
+    ``PATH``. runtraj does not include HYSPLIT: get it and set ``directory``
     (under ``models: hysplit:`` in ``config.yaml``) to the HYSPLIT folder,
     or put the folder that holds ``hycs_std`` on ``PATH``.
     """
 
 
-class MissingClass(StiltError, ImportError):
+class MissingClass(RuntrajError, ImportError):
     """
     A class that ``config.yaml`` names cannot be imported here.
 
@@ -79,27 +79,11 @@ class MissingClass(StiltError, ImportError):
     path (``class: mypkg.models.MyModel``), and every machine that opens the
     project needs that package: a settings folder is named from the class's
     own settings, defaults included. The message names the package to
-    install. The ``stilt`` commands end with exit code 2.
+    install. The ``runtraj`` commands end with exit code 2.
     """
 
 
-class EmptyFootprint(StiltError):
-    """
-    No particle is over the footprint grid, so there is no footprint.
-
-    An empty footprint is a finished result, not a failure. The worker
-    catches it and writes a footprint file with no rows, marked empty. The
-    message says why it is empty: the particles are off the grid, no
-    particle row has a positive ``foot``, or the table has no rows.
-    """
-
-    def __init__(
-        self, message: str = "No particle is over the footprint grid."
-    ) -> None:
-        super().__init__(message)
-
-
-class WorkerDied(StiltError, RuntimeError):
+class WorkerDied(RuntrajError, RuntimeError):
     """
     A worker process died without Python's say, and the run stopped.
 
@@ -107,17 +91,16 @@ class WorkerDied(StiltError, RuntimeError):
     (``SIGKILL``, as the kernel's out-of-memory killer sends). The pool
     cannot say which release the worker held, so the message names every
     release that was in progress. What finished is kept and nothing is marked
-    failed: run again, and only what is missing runs. ``stilt run`` ends
+    failed: run again, and only what is missing runs. ``runtraj run`` ends
     with exit code 3.
     """
 
 
 __all__ = [
-    "EmptyFootprint",
     "HYSPLITNotFoundError",
     "MeteorologyError",
     "MissingClass",
     "SimulationError",
-    "StiltError",
+    "RuntrajError",
     "WorkerDied",
 ]

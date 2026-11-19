@@ -1,5 +1,5 @@
 """
-CF-1.10 trajectories from a particle table, behind ``particles.stilt.to_cf_trajectories``.
+CF-1.10 trajectories from a particle table, behind ``particles.runtraj.to_cf_trajectories``.
 
 The particle table has one row per particle per output step. This module
 turns it into an :class:`xarray.Dataset` that follows the CF conventions for
@@ -13,10 +13,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-# Columns every particle table has (``stilt.particles.PARTICLE_SCHEMA``).
+# Columns every particle table has (``runtraj.particles.PARTICLE_SCHEMA``).
 _REQUIRED_COLUMNS = ("particle", "age", "time", "lon", "lat", "zagl")
 
-# Units and long names of the columns PYSTILT and HYSPLIT write, for the
+# Units and long names of the columns runtraj and HYSPLIT write, for the
 # variables of the trajectory dataset. A column not listed here is exported
 # without units.
 _COLUMN_ATTRS: dict[str, dict[str, str]] = {
@@ -129,9 +129,9 @@ def to_cf_trajectories(particles: pd.DataFrame) -> xr.Dataset:
     ds.attrs = {
         "Conventions": "CF-1.10",
         "featureType": "trajectory",
-        "title": "PYSTILT particle trajectories",
-        "source": "PYSTILT particle table",
-        "history": "Converted from a PYSTILT particle table",
+        "title": "runtraj particle trajectories",
+        "source": "runtraj particle table",
+        "history": "Converted from a runtraj particle table",
     }
     if "realization" in table.columns and len(table):
         ds.attrs["realization"] = int(table["realization"].iloc[0])

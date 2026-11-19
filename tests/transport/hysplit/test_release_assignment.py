@@ -7,9 +7,9 @@ from pathlib import Path
 
 import numpy as np
 
-from stilt.meteorology import run_window
-from stilt.releases import ColumnRelease, MultiPointRelease
-from stilt.transport.hysplit import (
+from runtraj.meteorology import run_window
+from runtraj.releases import ColumnRelease, MultiPointRelease
+from runtraj.transport.hysplit import (
     HysplitConfig,
     Met,
     read_particle_dat,
@@ -54,7 +54,7 @@ def test_hysplit_multipoint_release_points_follow_control_order(tmp_path, met_di
     Multipoint particles are assigned to explicit points in CONTROL order.
 
     This test characterizes the compiled HYSPLIT binary directly rather than
-    PYSTILT's later ``release_height`` reconstruction. It uses a divisible particle count
+    runtraj's later ``release_height`` reconstruction. It uses a divisible particle count
     so each explicit release point should receive the same-size contiguous
     ``particle`` block.
     """
@@ -129,7 +129,7 @@ def test_hysplit_multipoint_release_points_follow_control_order_nondivisible(
     )
 
     # HYSPLIT gives each point 10 // 3, rounded up to 4, and maxpar leaves
-    # room for all 12, so the last point is not cut to 2 (#237).
+    # room for all 12, so the last point is not cut to 2 (PYSTILT#237).
     release_rows = _release_time_rows(result)
     assert release_rows["particle"].tolist() == list(range(1, 13))
     assert (

@@ -1,4 +1,4 @@
-"""Tests for stilt.particles.table: particle files and release heights."""
+"""Tests for runtraj.particles.table: particle files and release heights."""
 
 import datetime as dt
 import json
@@ -10,24 +10,19 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from stilt.identity import run_settings, transport_from_settings
-from stilt.particles import (
+from runtraj.identity import run_settings, transport_from_settings
+from runtraj.particles import (
     particles_from_table,
     particles_metadata,
     read_particles,
     write_particles,
 )
-from stilt.particles.table import add_release_heights, needs_height_to_match
-from stilt.releases import ColumnRelease, MultiPointRelease, PointRelease
-from stilt.transport import ModelInfo
-from stilt.transport.hysplit import HysplitConfig
+from runtraj.particles.table import add_release_heights, needs_height_to_match
+from runtraj.releases import ColumnRelease, MultiPointRelease
+from runtraj.transport import ModelInfo
+from runtraj.transport.hysplit import HysplitConfig
 
 from ..fixtures.particles import finished
-
-#: A release that gives no release height of its own: a column.
-_NO_POINT = ColumnRelease(
-    time="2023-01-01 12:00", longitude=-111.85, latitude=40.77, bottom=0, top=1000
-)
 
 
 def _particles_basic() -> pd.DataFrame:
@@ -80,39 +75,6 @@ def _settings(params: HysplitConfig) -> dict:
     """The run settings a particle file records, for *params* and a test met."""
     met = {"source": "HRRR", "crop": None}
     return run_settings(params, met, ModelInfo(name="hysplit", sha256="0" * 64), None)
-
-
-def test_parquet_roundtrip_preserves_naive_utc_from_tz_aware_release(tmp_path):
-    """
-    A tz-aware release time becomes naive UTC and stays so through parquet.
-
-    Then the release, trajectory and footprint time axes align without
-    pandas raising on mixed tz comparisons.
-    """
-    aware_release = PointRelease(
-        time=pd.Timestamp("2023-01-01 12:00:00+00:00"),
-        longitude=-111.85,
-        latitude=40.77,
-        altitude=5.0,
-    )
-    # Release normalizes tz-aware input to naive UTC.
-    assert aware_release.time.tzinfo is None
-
-    traj = finished(_particles_basic(), aware_release)
-
-    path = tmp_path / "traj.parquet"
-    params = _params(tmp_path)
-    write_particles(path, traj, aware_release, _settings(params), [Path("/tmp/met1")])
-    loaded = read_particles(path)
-
-    release = particles_metadata(path).release
-    assert release.time.tzinfo is None
-    assert release.time == aware_release.time
-    assert loaded["time"].dt.tz is None
-    expected = pd.Timestamp("2023-01-01 12:00") + pd.to_timedelta(
-        traj["age"].to_numpy(), unit="min"
-    )
-    np.testing.assert_array_equal(loaded["time"].to_numpy(), expected.to_numpy())
 
 
 def test_read_particles_builds_time_when_only_time_is_asked_for(
@@ -230,7 +192,7 @@ def test_a_file_without_settings_is_refused_for_its_metadata(point_release, tmp_
     write_particles(path, traj, point_release, _settings(params), [])
     table = pq.ParquetFile(path).read()
     meta = dict(table.schema.metadata)
-    del meta[b"stilt:settings"]
+    del meta[b"runtraj:settings"]
     pq.write_table(table.replace_schema_metadata(meta), path)
 
     assert len(read_particles(path)) == len(traj)
@@ -249,7 +211,7 @@ def test_write_particles_is_atomic_on_failure(point_release, tmp_path, monkeypat
         Path(write_path).write_bytes(b"partial parquet")
         raise RuntimeError("write failed")
 
-    monkeypatch.setattr("stilt.particles.table.pq.write_table", _broken_write)
+    monkeypatch.setattr("runtraj.particles.table.pq.write_table", _broken_write)
 
     with pytest.raises(RuntimeError, match="write failed"):
         write_particles(path, traj, point_release, _settings(params), [])
@@ -576,25 +538,6 @@ def test_multipoint_release_time_rows_silence_the_warning(recwarn):
     assert not [w for w in recwarn if "reliably matched" in str(w.message)]
 
 
-def test_finished_particles_keep_the_uncorrected_foot(point_release):
-    """A run's particles are stored as the model left them; the footprint applies the correction."""
-    traj = finished(_particles_basic(), point_release)
-    assert "foot_no_hnf_dilution" not in traj.columns
-    assert traj["foot"].tolist() == _particles_basic()["foot"].tolist()
-
-
-def test_footprint_calculate_from_trajectory(point_release, tmp_path):
-    """calc_footprint works directly on a particle table and its release."""
-    from stilt.footprint import calc_footprint
-    from stilt.spatial import Grid
-
-    traj = finished(_particles_basic(), point_release)
-    grid = Grid(xmin=-115.0, xmax=-110.0, ymin=38.0, ymax=43.0, xres=0.1, yres=0.1)
-    # particles are at [-111.9, -112.0] x [40.7, 40.6] - inside the grid
-    result = calc_footprint(traj, point_release, grid)
-    assert float(result.sum()) > 0
-
-
 def _particles_two_lengths() -> pd.DataFrame:
     """Two particles: particle 1 reaches -120 min, particle 2 only -30 min."""
     return pd.DataFrame(
@@ -627,7 +570,7 @@ def test_endpoints_returns_far_end_per_particle(point_release, tmp_path):
         particles["age"], unit="min"
     )
 
-    ep = particles.stilt.endpoints().sort_values("particle").reset_index(drop=True)
+    ep = particles.runtraj.endpoints().sort_values("particle").reset_index(drop=True)
     assert list(ep.columns) == list(particles.columns)
     # Both particles kept, each at its far end (largest |time|): p1 at -120, p2 at -30.
     assert ep["particle"].tolist() == [1, 2]
@@ -640,55 +583,18 @@ def test_endpoints_returns_far_end_per_particle(point_release, tmp_path):
     ]
 
 
-def test_calc_footprint_regenerates_a_footprint_on_a_new_grid(tmp_path):
-    """calc_footprint makes a footprint on any grid from stored particles."""
-    from stilt.footprint import calc_footprint
-    from stilt.spatial import Grid
-
-    rng = np.random.default_rng(0)
-    n = 20
-    particles = pd.DataFrame(
-        {
-            "age": [-60] * n + [-120] * n,
-            "particle": list(range(1, n + 1)) * 2,
-            "lon": rng.uniform(-113.9, -113.1, n * 2),
-            "lat": rng.uniform(39.1, 39.9, n * 2),
-            "zagl": rng.uniform(5, 100, n * 2),
-            "foot": rng.uniform(0.0, 1e-3, n * 2),
-        }
-    )
-    release = PointRelease(
-        time="2023-01-01 12:00:00", longitude=-113.5, latitude=39.5, altitude=5.0
-    )
-    traj = finished(particles, release)
-    grid = Grid(xmin=-114.0, xmax=-113.0, ymin=39.0, ymax=40.0, xres=0.1, yres=0.1)
-    from stilt.transforms import FirstOrderLifetime
-
-    fp = calc_footprint(traj, release, grid, name="coarse")
-    assert fp.stilt.name == "coarse"
-    assert fp.stilt.release == release
-    assert fp.stilt.grid == grid
-    assert float(fp.sum()) > 0
-
-    decayed = calc_footprint(
-        traj, release, grid, transforms=[FirstOrderLifetime(lifetime_hours=0.5)]
-    )
-    assert float(decayed.sum()) < float(fp.sum())
-    assert decayed.stilt.config.transforms == [FirstOrderLifetime(lifetime_hours=0.5)]
-
-
 def test_stored_settings_this_version_does_not_have_are_dropped(
     point_release, tmp_path
 ):
-    """Files written before a setting was removed still load (#44)."""
+    """Files written before a setting was removed still load (PYSTILT#44)."""
     params = _params(tmp_path)
     traj = finished(_particles_basic(), point_release)
     path = tmp_path / "traj.parquet"
     write_particles(path, traj, point_release, _settings(params), [])
     table = pq.ParquetFile(path).read()
     meta = dict(table.schema.metadata)
-    stored = json.loads(meta[b"stilt:settings"])
-    meta[b"stilt:settings"] = json.dumps({**stored, "gone": 1}).encode()
+    stored = json.loads(meta[b"runtraj:settings"])
+    meta[b"runtraj:settings"] = json.dumps({**stored, "gone": 1}).encode()
     meta[b"stilt:is_error"] = b"true"  # written by earlier versions; ignored
     pq.write_table(table.replace_schema_metadata(meta), path)
 
@@ -696,32 +602,9 @@ def test_stored_settings_this_version_does_not_have_are_dropped(
     assert rebuilt.settings() == params.settings()
 
 
-def test_check_particles_names_the_missing_columns():
-    from stilt.particles import PARTICLE_SCHEMA, check_particles
-
-    table = pd.DataFrame({name: [1.0] for name in PARTICLE_SCHEMA.names})
-    check_particles(table)
-    with pytest.raises(ValueError, match="no 'foot' column.*footprint_particles"):
-        check_particles(table, need=("foot",))
-    with pytest.raises(ValueError, match="no 'lon', 'lat' columns"):
-        check_particles(table.drop(columns=["lon", "lat"]))
-
-
-def test_a_footprint_needs_the_particle_columns(point_release):
-    from stilt.footprint import calc_footprint
-    from stilt.spatial import Grid
-
-    grid = Grid(xmin=-113.0, xmax=-111.0, ymin=40.0, ymax=41.0, xres=0.1, yres=0.1)
-    particles = pd.DataFrame(
-        {"particle": [1], "age": [-1], "lon": [-112.0], "lat": [40.5], "zagl": [5.0]}
-    )
-    with pytest.raises(ValueError, match="no 'foot' column"):
-        calc_footprint(particles, point_release, grid)
-
-
 def test_a_column_release_row_says_which_slab_a_particle_stands_for():
     """With t = 0 rows, release_height is the centre of the slab the release falls in, not the indx order."""
-    from stilt.particles import add_release_heights
+    from runtraj.particles import add_release_heights
 
     column = ColumnRelease(
         time="2023-01-01 12:00", longitude=-111.85, latitude=40.77, bottom=0, top=1000

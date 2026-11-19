@@ -1,7 +1,7 @@
 """
 Whether an error is one a retry may get past.
 
-``stilt``'s command group asks it of an error no command handled (3 if so,
+The ``runtraj`` command group asks it of an error no command handled (3 if so,
 4 if not), a worker of an error that ended a simulation (no failure is
 recorded if so), and a met fetch of an error it could otherwise take for a
 missing file.

@@ -1,32 +1,26 @@
 """
-Fixtures for the integration tests: releases and configs at the WBB site.
+Fixtures for the integration tests: releases and configs near Salt Lake City.
 
 The tests run HYSPLIT on real meteorology, the test met cache that the
 ``met_dir`` fixture finds, and are marked ``integration``.
 """
 
+import datetime as dt
 from pathlib import Path
 
 import pytest
 
-from stilt.config import ProjectConfig
-from stilt.releases import ColumnRelease, MultiPointRelease
-from stilt.spatial import Grid
-from stilt.stilt_project import STILT_R_HYSPLIT
-from stilt.transport.hysplit import MetConfig
-from tests.fixtures.factories import blocks
+from runtraj.config import ProjectConfig
+from runtraj.releases import ColumnRelease, MultiPointRelease, PointRelease
+from runtraj.transport.hysplit import MetConfig
+from tests.fixtures.factories import blocks, make_met_config
 
-from ..fixtures.factories import make_met_config
-from ..fixtures.r_stilt_reference import (
-    REFERENCE_TIME,
-    reference_grid,
-    reference_release,
-)
+#: A time the test met cache covers, with six hours before it.
+REFERENCE_TIME = dt.datetime(2021, 1, 15, 6, 0)
 
-#: The HYSPLIT settings of the configs here: STILT-R's values, as
-#: ``Project.init`` writes them, so a test that writes a fixture's config
-#: over an initialized project keeps its settings folders, then a short run.
-HYSPLIT = {**STILT_R_HYSPLIT, "n_hours": -6, "numpar": 100}
+#: The HYSPLIT settings of the configs here: a short run of few particles,
+#: with HYSPLIT's own defaults for the rest.
+HYSPLIT = {"n_hours": -6, "numpar": 100}
 
 
 def reference_met(met_dir: Path) -> MetConfig:
@@ -36,13 +30,15 @@ def reference_met(met_dir: Path) -> MetConfig:
 
 @pytest.fixture(scope="session")
 def wbb_release():
-    """Single WBB-like release matching STILT-R tutorial parameters."""
-    return reference_release()
+    """A point release 5 m above ground."""
+    return PointRelease(
+        time=REFERENCE_TIME, longitude=-112.0, latitude=40.5, altitude=5.0
+    )
 
 
 @pytest.fixture(scope="session")
 def wbb_column_release():
-    """Column release at WBB - same lat/lon, two heights."""
+    """Column release at the same place, 5 m to 1000 m."""
     return ColumnRelease(
         time=REFERENCE_TIME,
         longitude=-112.0,
@@ -54,7 +50,7 @@ def wbb_column_release():
 
 @pytest.fixture(scope="session")
 def wbb_multipoint_release():
-    """Three-location multipoint release at WBB area."""
+    """Three-location multipoint release."""
     return MultiPointRelease(
         time=REFERENCE_TIME,
         longitudes=[-112.0, -111.5, -111.0],
@@ -64,64 +60,12 @@ def wbb_multipoint_release():
 
 
 @pytest.fixture(scope="session")
-def wbb_grid() -> Grid:
-    """Domain grid covering the WBB area at 0.01° resolution."""
-    return reference_grid()
-
-
-@pytest.fixture(scope="session")
-def wbb_config(met_dir, wbb_grid) -> ProjectConfig:
-    """Minimal ProjectConfig for integration tests (n_hours=-6, numpar=100)."""
-    return ProjectConfig(
-        **blocks(
-            mets={"hrrr": reference_met(met_dir)},
-            **HYSPLIT,
-            grid=wbb_grid,
-            variants={"hrrr": {}},
-        )
-    )
-
-
-@pytest.fixture(scope="session")
 def traj_only_config(met_dir) -> ProjectConfig:
-    """ProjectConfig without footprints for trajectory-only tests."""
+    """A project config for a short run of the test met cache."""
     return ProjectConfig(
         **blocks(
             mets={"hrrr": reference_met(met_dir)},
             **HYSPLIT,
-            variants={"hrrr": {}},
-        )
-    )
-
-
-@pytest.fixture(scope="session")
-def multifoot_config(met_dir, wbb_grid) -> ProjectConfig:
-    """Config with a second, coarser footprint on the same particles."""
-    coarse_grid = Grid(
-        xmin=-113.0, xmax=-111.0, ymin=39.5, ymax=41.5, xres=0.05, yres=0.05
-    )
-    return ProjectConfig(
-        **blocks(
-            mets={"hrrr": reference_met(met_dir)},
-            **HYSPLIT,
-            grid=wbb_grid,
-            variants={
-                "hrrr": {},
-                "coarse": {"grid": coarse_grid.model_dump()},
-            },
-        )
-    )
-
-
-@pytest.fixture(scope="session")
-def multipoint_config(met_dir) -> ProjectConfig:
-    """Config with a wider domain covering all three multipoint release locations."""
-    grid = Grid(xmin=-113.0, xmax=-110.5, ymin=39.5, ymax=42.0, xres=0.01, yres=0.01)
-    return ProjectConfig(
-        **blocks(
-            mets={"hrrr": reference_met(met_dir)},
-            **HYSPLIT,
-            grid=grid,
             variants={"hrrr": {}},
         )
     )

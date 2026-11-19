@@ -1,5 +1,3 @@
-"""The worker's stage loop, held with two toy stages that import nothing from the footprint."""
-
 from __future__ import annotations
 
 import datetime as dt
@@ -8,10 +6,10 @@ import pandas as pd
 import pytest
 import yaml
 
-from stilt import Project
-from stilt.execution import worker
-from stilt.execution.worker import run_release, run_stage
-from stilt.output import completed
+from runtraj import Project
+from runtraj.execution import worker
+from runtraj.execution.worker import run_release, run_stage
+from runtraj.output import completed
 
 from ..fixtures import stages as toy
 from ..fixtures.factories import make_met_config, make_release
@@ -311,7 +309,7 @@ def test_on_an_object_store_a_stage_that_fails_leaves_no_file(
     pytest.importorskip("upath")
     import uuid
 
-    store = f"memory://pystilt-stages-{uuid.uuid4().hex}/output"
+    store = f"memory://runtraj-stages-{uuid.uuid4().hex}/output"
     project = _project(tmp_path, release, output=store, fail=True)
 
     problems = _run(project, release)
@@ -330,7 +328,7 @@ def test_on_an_object_store_the_stages_run_and_complete(tmp_path, release, model
     pytest.importorskip("upath")
     import uuid
 
-    store = f"memory://pystilt-stages-{uuid.uuid4().hex}/output"
+    store = f"memory://runtraj-stages-{uuid.uuid4().hex}/output"
     project = _project(tmp_path, release, output=store, scale=2)
 
     assert _run(project, release) == []
@@ -548,28 +546,6 @@ def test_the_folders_table_lists_each_stage_tree(tmp_path, release, model_runs):
     assert list(old_double["differs"]) == ["made from other particles"]
 
 
-def test_a_tree_this_layout_did_not_write_is_listed_as_it_records_itself(
-    tmp_path, release, model_runs
-):
-    project = _project(tmp_path, release)
-    _run(project, release)
-    old = project.output.directory / "footprints" / "settings=hrrr-abc123"
-    old.mkdir(parents=True)
-    record = {"name": "hrrr", "hash": "abc123def", "particles": "hrrr-000000"}
-    (old / "_settings.yaml").write_text(yaml.safe_dump({**record, "settings": {}}))
-
-    output = Project(project.directory).output
-
-    assert output.kinds() == ["particles", "count", "double", "footprints"]
-    assert output.hashes("footprints") == {"hrrr-abc123": "abc123def"}
-    folders = Project(project.directory).folders()
-    row = folders[folders["kind"] == "footprints"].iloc[0]
-    assert (row["variant"], row["differs"]) == (
-        "",
-        "the variant has no footprints stage",
-    )
-
-
 def test_a_stage_folder_whose_class_is_not_installed_keeps_its_record(
     tmp_path, release, model_runs
 ):
@@ -594,43 +570,3 @@ def test_logs_and_scratch_are_not_kinds(tmp_path, release, model_runs):
     _run(project, release)
     with pytest.raises(ValueError, match="kind is 'particles' or a stage's name"):
         project.output.hashes("logs")
-
-
-def test_the_footprints_old_kind_is_refused_by_name(tmp_path, release, model_runs):
-    """Code written for the earlier name gets a message, not an empty answer."""
-    project = _project(tmp_path, release)
-    _run(project, release)
-    sim = project.simulation(str(release.id), "hrrr")
-    message = "The footprints' kind is 'footprint', the name of their stage"
-    with pytest.raises(ValueError, match=message):
-        project.output.present("footprints", sim.variant)
-    with pytest.raises(ValueError, match=message):
-        project.output.table("footprints", sim.variant)
-    with pytest.raises(ValueError, match=message):
-        sim.path("footprints")
-    with pytest.raises(ValueError, match=message):
-        sim.has("footprints")
-    # Any other name is taken for a stage this variant does not use.
-    assert sim.path("footprint") is None and not sim.has("footprint")
-
-
-def test_a_variant_without_stages_needs_no_particles_hash_to_say_so(tmp_path, release):
-    """Asking about a stage a variant does not use reads neither the met nor the model's build."""
-    from stilt.config import Variant
-    from stilt.output import Output
-    from stilt.transport.hysplit import HysplitConfig, MetConfig
-
-    variant = Variant(
-        name="hrrr",
-        met="hrrr",
-        met_config=MetConfig(directory=str(tmp_path / "no_such_met")),
-        transport=HysplitConfig(n_hours=-24),
-        model="hysplit",
-    )
-    with pytest.raises(FileNotFoundError):
-        _ = variant.particles_hash  # the met's files are not here
-    assert variant.stage_hashes == {}
-    output = Output(tmp_path / "output")
-    assert output.path("footprint", variant, str(release.id)) is None
-    assert output.present("footprint", variant) == frozenset()
-    assert output.folder("footprint", variant) is None

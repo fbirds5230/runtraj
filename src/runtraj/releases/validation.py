@@ -3,8 +3,8 @@ The checks a release must pass, each written once for many points.
 
 Each check returns ``(bad, message)``: the points that fail it and why. A
 release runs the checks on its own points and raises the first failure
-(:mod:`stilt.releases.models`). The release table runs them on a whole
-file and names the first bad row (:func:`stilt.releases.table.release_rows`).
+(:mod:`runtraj.releases.models`). The release table runs them on a whole
+file and names the first bad row (:func:`runtraj.releases.table.release_rows`).
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def multipoint_errors(lon: Any, lat: Any, release: Any) -> list[tuple[np.ndarray
 
     HYSPLIT joins consecutive release locations at one latitude and
     longitude into a vertical line source and releases only from the last
-    pair, and PYSTILT matches particles to their release point by
+    pair, and runtraj matches particles to their release point by
     horizontal position.
     """
     points = pd.DataFrame(

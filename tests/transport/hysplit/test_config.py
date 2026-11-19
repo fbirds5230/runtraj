@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from stilt.transport.hysplit import HysplitConfig
+from runtraj.transport.hysplit import HysplitConfig
 
 
 def test_winderrtf_partial_xy_raises():
@@ -82,7 +82,7 @@ def test_varsiwant_takes_zcfx_the_name_hysplit_reads():
 
 @pytest.mark.parametrize("name", ["zfx1", "ZFX1"])
 def test_varsiwant_refuses_zfx1_and_names_zcfx(name):
-    """hycs_std stops at lowercase `zfx1` and reads `ZFX1` only in capitals, which no other name takes (#324)."""
+    """hycs_std stops at lowercase `zfx1` and reads `ZFX1` only in capitals, which no other name takes (PYSTILT#324)."""
     with pytest.raises(ValidationError, match="'zfx1' is not a varsiwant name.*'zcfx'"):
         HysplitConfig(n_hours=-24, varsiwant=["time", "indx", "long", "lati", name])
 
@@ -118,7 +118,7 @@ def test_n_hours_must_not_be_zero():
     ],
 )
 def test_a_physical_setting_out_of_its_range_is_refused(field, value):
-    """These were accepted and ran, or failed later with no field named (#440)."""
+    """These were accepted and ran, or failed later with no field named (PYSTILT#440)."""
     with pytest.raises(ValidationError, match=field):
         HysplitConfig(n_hours=-24, **{field: value})
 

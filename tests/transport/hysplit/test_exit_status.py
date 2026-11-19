@@ -1,4 +1,4 @@
-"""A ``hycs_std`` that ends badly is a failed simulation, whatever its particle file holds (#318)."""
+"""A ``hycs_std`` that ends badly is a failed simulation, whatever its particle file holds (PYSTILT#318)."""
 
 import datetime as dt
 import stat
@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from stilt import Project
-from stilt.config import ProjectConfig
-from stilt.exceptions import SimulationError
-from stilt.meteorology import run_window
-from stilt.releases import PointRelease
-from stilt.transport.hysplit import FailureReason, HysplitConfig, HysplitModel
+from runtraj import Project
+from runtraj.config import ProjectConfig
+from runtraj.exceptions import SimulationError
+from runtraj.meteorology import run_window
+from runtraj.releases import PointRelease
+from runtraj.transport.hysplit import FailureReason, HysplitConfig, HysplitModel
 from tests.fixtures.factories import blocks
 
 from ...fixtures.factories import make_hysplit_dir, make_met_config, make_met_files
@@ -99,7 +99,7 @@ def test_a_hycs_std_that_exits_1_part_way_fails_with_its_status(tmp_path, outdt)
     ],
 )
 def test_a_release_outside_the_met_fails_with_hysplits_own_line(tmp_path, line):
-    """HYSPLIT exits 132 for both and names the cause in its log (#367)."""
+    """HYSPLIT exits 132 for both and names the cause in its log (PYSTILT#367)."""
     build = _fake_hycs_std(tmp_path / "build", f"echo '{line}'\nexit 132\n")
 
     with pytest.raises(SimulationError) as caught:
@@ -128,7 +128,7 @@ def test_a_hycs_std_that_exits_0_without_output_still_fails_for_that(tmp_path):
 
 
 def test_a_killed_simulation_stores_no_particles_and_a_rerun_runs_it_again(tmp_path):
-    """The failure is recorded with its reason, and the next run does not skip it (#318)."""
+    """The failure is recorded with its reason, and the next run does not skip it (PYSTILT#318)."""
     full = _particle_dat(tmp_path / "full.dat", abs(N_HOURS) * 60)
     partial = _particle_dat(tmp_path / "partial.dat", 120)
     flag = tmp_path / "kill-it"

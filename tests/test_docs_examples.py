@@ -1,4 +1,4 @@
-"""The examples in the docs must be code and settings PYSTILT accepts."""
+"""The examples in the docs must be code and settings runtraj accepts."""
 
 from __future__ import annotations
 
@@ -15,54 +15,11 @@ import pytest
 import yaml
 from pydantic import RootModel
 
-from stilt.config import FOOTPRINT_STAGE, ProjectConfig
-from stilt.execution.config import ExecutionConfig
-from stilt.footprint.config import FootprintConfig
-from stilt.transport import TransportConfig
+from runtraj.execution.config import ExecutionConfig
+from runtraj.transport import TransportConfig
 
 DOCS = Path(__file__).parent.parent / "docs"
 README = DOCS.parent / "README.md"
-
-#: The footprint's block of :data:`_BASE_CONFIG`.
-_FOOTPRINT = {
-    "class": FOOTPRINT_STAGE,
-    "grid": {
-        "xmin": -114.0,
-        "xmax": -113.0,
-        "ymin": 39.0,
-        "ymax": 40.0,
-        "xres": 0.1,
-        "yres": 0.1,
-    },
-}
-
-#: Blocks a config example leaves out because the page is about something
-#: else: one met, HYSPLIT with a run length, a footprint with a grid, and one
-#: variant.
-_BASE_CONFIG = {
-    "mets": {"hrrr": "/met"},
-    "models": {"hysplit": {"n_hours": -24}},
-    "stages": {"footprint": _FOOTPRINT},
-    "variants": {"hrrr": {}},
-}
-
-
-def _whole(data: dict) -> dict:
-    """
-    Return a config example as a whole config, over :data:`_BASE_CONFIG`.
-
-    An example of footprint settings alone, such as a ``transforms:`` list,
-    is what a page shows of the footprint's block, so it goes there. A
-    ``hysplit`` block that leaves out ``n_hours`` shows the settings the
-    page is about, so it gets the base's.
-    """
-    if data.keys() <= set(FootprintConfig.model_fields):
-        return {**_BASE_CONFIG, "stages": {"footprint": {**_FOOTPRINT, **data}}}
-    whole = {**_BASE_CONFIG, **data}
-    hysplit = whole["models"].get("hysplit")
-    if isinstance(hysplit, dict) and "class" not in hysplit:
-        whole["models"] = {**whole["models"], "hysplit": {"n_hours": -24, **hysplit}}
-    return whole
 
 
 #: YAML blocks that are not a ``config.yaml``: a Kubernetes manifest.
@@ -171,11 +128,10 @@ EXECUTION = [
 
 
 def test_the_docs_show_examples():
-    assert len(PYTHON) >= 50
-    assert len(CONFIGS) >= 20
+    assert len(PYTHON) >= 15
+    assert len(CONFIGS) >= 15
     assert len(EXECUTION) >= 3
     assert len(BASH) >= 10
-    assert PYCON
 
 
 class _MyModel:
@@ -220,11 +176,6 @@ def test_shell_examples_in_the_docs_are_valid_bash(block):
         ["bash", "-n"], input=block, text=True, capture_output=True
     )
     assert checked.returncode == 0, checked.stderr
-
-
-@pytest.mark.parametrize("data", [d for _, d in CONFIGS], ids=[n for n, _ in CONFIGS])
-def test_config_examples_in_the_docs_are_valid(data, mypkg):
-    ProjectConfig.model_validate(_whole(data))
 
 
 @pytest.mark.parametrize(

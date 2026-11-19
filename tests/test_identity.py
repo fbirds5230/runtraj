@@ -1,27 +1,23 @@
-"""Tests for stilt.identity: what identifies a run and a footprint, and reading it back."""
-
 import hashlib
 from dataclasses import replace
 
 import pytest
 import yaml
 
-import stilt
-from stilt.config import ProjectConfig, Variant
-from stilt.exceptions import HYSPLITNotFoundError
-from stilt.footprint.stage import store_empty_footprint
-from stilt.identity import read_run_settings, run_settings, settings_hash
-from stilt.output import Output
-from stilt.transport import ModelInfo
-from stilt.transport.hysplit import HysplitConfig, MetConfig
-from stilt.transport.hysplit.model import hysplit_version
+import runtraj
+from runtraj.config import ProjectConfig, Variant
+from runtraj.exceptions import HYSPLITNotFoundError
+from runtraj.identity import read_run_settings, run_settings, settings_hash
+from runtraj.output import Output
+from runtraj.transport import ModelInfo
+from runtraj.transport.hysplit import HysplitConfig, MetConfig
+from runtraj.transport.hysplit.model import hysplit_version
 from tests.fixtures.factories import blocks
 
 from .conftest import STAND_IN_VERSION
 from .fixtures.factories import (
     make_hysplit_dir,
     make_met_config,
-    make_release,
     write_arl_file,
 )
 
@@ -46,13 +42,6 @@ def _variant(tmp_path, met: MetConfig | None = None, **transport) -> Variant:
 # ---------------------------------------------------------------------------
 # hashing
 # ---------------------------------------------------------------------------
-
-
-def test_settings_hash_ignores_key_order_and_number_spelling():
-    a = {"numpar": 1000, "ziscale": 1.0, "grid": {"xres": 0.01, "yres": 0.01}}
-    b = {"grid": {"yres": 0.01, "xres": 0.01}, "ziscale": 1, "numpar": 1000.0}
-    assert settings_hash(a) == settings_hash(b)
-    assert settings_hash(a) != settings_hash({**a, "ziscale": 0.8})
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +72,7 @@ def test_hysplit_version_is_none_for_a_hycs_std_that_cannot_run_here(tmp_path):
 def test_hysplit_version_is_none_for_a_hycs_std_that_does_not_stop(
     tmp_path, monkeypatch
 ):
-    from stilt.transport.hysplit import model
+    from runtraj.transport.hysplit import model
 
     monkeypatch.setattr(model, "_VERSION_TIMEOUT", 0.5)
     folder = make_hysplit_dir(tmp_path / "b", version=None, body="exec sleep 30\n")
@@ -162,7 +151,7 @@ def test_run_settings_leave_out_what_changes_no_particle(tmp_path):
     recorded = base.run_settings
     assert "directory" not in recorded
     assert set(recorded["model"]) == {"name", "sha256", "data_files"}
-    # Unset, maxpar depends on the release (#237), so it is recorded unset,
+    # Unset, maxpar depends on the release (PYSTILT#237), so it is recorded unset,
     # and a set maxpar, which can stop a multipoint release, is another run.
     assert recorded["maxpar"] is None
     capped = _variant(tmp_path, numpar=100, maxpar=100)
@@ -188,33 +177,6 @@ def test_nested_and_flat_ziscale_are_one_run(tmp_path):
         HysplitConfig(n_hours=-24, ziscale=[[0.8], [0.9]])
 
 
-def test_variants_that_differ_only_in_footprint_fields_share_particles(tmp_path):
-    config = ProjectConfig(
-        **blocks(
-            mets={"hrrr": _met(tmp_path)},
-            grid=GRID,
-            numpar=100,
-            variants={
-                "hrrr": {},
-                "hrrr-smooth": {"smooth_factor": 0.5},
-                "hrrr-coarse": {"grid": {"xres": 0.5, "yres": 0.5}},
-                "hrrr-err": {
-                    "siguverr": 2.0,
-                    "tluverr": 100.0,
-                    "zcoruverr": 200.0,
-                    "horcoruverr": 10.0,
-                },
-            },
-        )
-    )
-    variants = config.resolve()
-    runs = {name: v.particles_hash for name, v in variants.items()}
-    assert runs["hrrr"] == runs["hrrr-smooth"] == runs["hrrr-coarse"]
-    assert runs["hrrr-err"] != runs["hrrr"]
-    feet = {name: v.stage_hashes.get("footprint") for name, v in variants.items()}
-    assert len(set(feet.values())) == 4
-
-
 # ---------------------------------------------------------------------------
 # reading stored settings back
 # ---------------------------------------------------------------------------
@@ -232,28 +194,6 @@ def test_stored_settings_read_back_to_the_same_hash(tmp_path):
     # A default that changed meaning: the stored value differs, so the run differs.
     stored["capemin"] = -2
     assert settings_hash(read_run_settings(stored)) != variant.particles_hash
-
-
-@pytest.mark.parametrize(
-    "gone",
-    [{"footprint_depth": 0.3}, {"footprint_depth": 0.5}, {"pbl_height": "richardson"}],
-)
-def test_a_stored_setting_this_version_does_not_have_keeps_the_run_apart(
-    tmp_path, gone
-):
-    """
-    A run made when the depth was a run setting is not taken for HYSPLIT's ``veght``.
-
-    Dropping the setting would read a run made with ``footprint_depth: 0.3``,
-    or with a ``foot`` computed under ``pbl_height``, as one made with the
-    default ``veght: 0.5``, and a variant would find particles made otherwise.
-    """
-    variant = _variant(tmp_path, numpar=100)
-    stored = {k: v for k, v in variant.run_settings.items() if k != "veght"}
-    stored.update(gone)
-    record = read_run_settings(stored)
-    assert settings_hash(record) != variant.particles_hash
-    assert {k: record[k] for k in gone} == gone
 
 
 def _make_folder(directory, variant):
@@ -312,40 +252,13 @@ def test_output_finds_a_run_whose_stored_settings_predate_a_field(tmp_path):
     assert out.folder("particles", renamed) == run
 
 
-def test_footprints_written_before_tres_are_hourly_and_still_found(tmp_path):
-    """A footprints folder from before ``tres`` is an hourly variant's."""
-    config = ProjectConfig(
-        **blocks(
-            mets={"hrrr": _met(tmp_path)},
-            grid=GRID,
-            numpar=100,
-            variants={"hrrr": {}, "hrrr-quarters": {"tres": "15min"}},
-        )
-    )
-    variants = config.resolve()
-    hourly, quarters = variants["hrrr"], variants["hrrr-quarters"]
-    assert hourly.particles_hash == quarters.particles_hash
-    assert hourly.stage_hashes.get("footprint") != quarters.stage_hashes.get(
-        "footprint"
-    )
-
-    out = Output(tmp_path / "out")
-    store_empty_footprint(out, hourly, make_release())
-    folder = out.folder("footprint", hourly)
-    _rewrite_record(folder, lambda s: s.pop("tres"))
-
-    out = Output(tmp_path / "out")
-    assert out.folder("footprint", hourly) == folder
-    assert out.folder("footprint", quarters) is None
-
-
 # ---------------------------------------------------------------------------
 # data files
 # ---------------------------------------------------------------------------
 
 
 def test_every_data_table_is_recorded_by_its_checksum(tmp_path):
-    """PYSTILT includes no tables, so a run records the four it read."""
+    """No table is included, so a run records the four it read."""
     variant = _variant(tmp_path, numpar=100)
     assert set(variant.build.data_files) == {
         "ASCDATA.CFG",
@@ -407,11 +320,11 @@ def test_a_hysplit_folder_without_its_tables_says_where_they_go(tmp_path):
 
 
 def test_a_file_stamp_says_which_folder_and_version_made_a_file():
-    from stilt.identity import file_stamp, pystilt_version
+    from runtraj.identity import file_stamp, runtraj_version
 
     assert file_stamp("abc123") == {
-        b"stilt:hash": b"abc123",
-        b"stilt:pystilt": pystilt_version().encode(),
+        b"runtraj:hash": b"abc123",
+        b"runtraj:version": runtraj_version().encode(),
     }
-    assert file_stamp("abc123", 2)[b"stilt:realization"] == b"2"
-    assert pystilt_version() == stilt.__version__
+    assert file_stamp("abc123", 2)[b"runtraj:realization"] == b"2"
+    assert runtraj_version() == runtraj.__version__

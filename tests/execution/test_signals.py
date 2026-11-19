@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from stilt.execution.worker import _sigterm_as_interrupt
+from runtraj.execution.worker import _sigterm_as_interrupt
 
 
 def test_sigterm_as_interrupt_restores_handler():
@@ -69,7 +69,7 @@ def test_sigterm_as_interrupt_leaves_an_existing_handler_alone():
 
 
 # ---------------------------------------------------------------------------
-# stilt run --cpus N, stopped by SIGTERM (#309)
+# runtraj run --cpus N, stopped by SIGTERM (PYSTILT#309)
 # ---------------------------------------------------------------------------
 
 #: A transport model whose run is a fake ``hycs_std`` that sleeps while ``slow`` exists.
@@ -79,8 +79,8 @@ from pathlib import Path
 
 import pandas as pd
 from pydantic import BaseModel
-from stilt.transport import ModelRun, TransportConfig
-from stilt.transport.hysplit.driver import run_hycs_std
+from runtraj.transport import ModelRun, TransportConfig
+from runtraj.transport.hysplit.driver import run_hycs_std
 
 class SlowConfig(TransportConfig):
     pass
@@ -124,13 +124,13 @@ class SlowModel:
         }))
 """
 
-#: Starts ``stilt run`` with one multiprocessing start method.
+#: Starts ``runtraj run`` with one multiprocessing start method.
 _LAUNCH = """
 import multiprocessing, sys
 if __name__ == "__main__":
     multiprocessing.set_start_method(sys.argv[1])
-    sys.argv = ["stilt", *sys.argv[2:]]
-    from stilt.cli import app
+    sys.argv = ["runtraj", *sys.argv[2:]]
+    from runtraj.cli import app
     app()
 """
 
@@ -149,7 +149,7 @@ START_METHODS = [
 @pytest.mark.skipif(sys.platform == "win32", reason="needs POSIX signals and sh")
 @pytest.mark.parametrize("method", START_METHODS)
 def test_sigterm_stops_a_run_on_two_cpus_with_exit_3(tmp_path, method):
-    """SIGTERM ends the HYSPLIT runs and the workers, and ``stilt run`` exits 3 (#309)."""
+    """SIGTERM ends the HYSPLIT runs and the workers, and ``runtraj run`` exits 3 (PYSTILT#309)."""
     (tmp_path / "slowpool").mkdir()
     (tmp_path / "slowpool" / "__init__.py").write_text(_SLOW_PACKAGE)
     (tmp_path / "launch.py").write_text(_LAUNCH)
@@ -205,7 +205,7 @@ def test_sigterm_stops_a_run_on_two_cpus_with_exit_3(tmp_path, method):
         try:
             output, _ = proc.communicate(timeout=20)
         except subprocess.TimeoutExpired:
-            pytest.fail("stilt run did not stop within 20 s of SIGTERM")
+            pytest.fail("runtraj run did not stop within 20 s of SIGTERM")
         assert time.monotonic() - started < 20
     finally:
         # macOS refuses to signal a group whose last processes are exiting

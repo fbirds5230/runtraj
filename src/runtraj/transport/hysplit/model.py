@@ -12,8 +12,8 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from stilt.exceptions import SimulationError
-from stilt.transport import ModelRun
+from runtraj.exceptions import SimulationError
+from runtraj.transport import ModelRun
 
 from .config import HysplitConfig
 from .driver import (
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from arlmet import Grid
 
-    from stilt.releases import Release
+    from runtraj.releases import Release
 
 
 #: What ``hycs_std`` prints on its first lines: ``HYSPLIT version: hysplit.v5.1.0``.
@@ -81,7 +81,7 @@ def _stamp(path: Path) -> tuple[str, int, int]:
 @functools.lru_cache(maxsize=16)
 def _printed_version(path: str, mtime_ns: int, size: int) -> str | None:
     """Return the version the ``hycs_std`` at *path* prints, read once per file."""
-    with tempfile.TemporaryDirectory(prefix="stilt-version-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="runtraj-version-") as tmp:
         try:
             proc = subprocess.Popen(
                 [path],
@@ -118,9 +118,9 @@ class HysplitModel:
     HYSPLIT as a transport model, the object ``get_model("hysplit")`` returns.
 
     :meth:`run` picks the met files a release needs, writes HYSPLIT's input
-    files (:func:`~stilt.transport.hysplit.write_inputs`), runs ``hycs_std``,
+    files (:func:`~runtraj.transport.hysplit.write_inputs`), runs ``hycs_std``,
     and reads the particles it writes
-    (:func:`~stilt.transport.hysplit.read_particle_dat`). HYSPLIT reads the
+    (:func:`~runtraj.transport.hysplit.read_particle_dat`). HYSPLIT reads the
     met where it is (the cropped copies when the met is cropped), so nothing
     is staged per run.
     """
@@ -156,7 +156,7 @@ class HysplitModel:
         """
         Return the SHA-256 of each data table a run uses, by name.
 
-        The tables of :func:`~stilt.transport.hysplit.data_tables`, as the
+        The tables of :func:`~runtraj.transport.hysplit.data_tables`, as the
         run gets them: ``ASCDATA.CFG`` with its line of where the tables are
         set to the workdir, so where a HYSPLIT folder keeps them changes
         nothing.
@@ -217,7 +217,7 @@ class HysplitModel:
         met : MetConfig
             The met, with an absolute directory in a project.
         windows : iterable of tuple of datetime
-            The time each run covers (:func:`stilt.meteorology.run_window`).
+            The time each run covers (:func:`runtraj.meteorology.run_window`).
 
         Returns
         -------
@@ -253,11 +253,10 @@ class HysplitModel:
 
         It finds the met files that cover *window*, up to the met step at
         or after its end, which HYSPLIT interpolates, cropped when the met
-        is. Its output is ``stilt.log`` in *workdir*, returned as the run's
+        is. Its output is ``hysplit.log`` in *workdir*, returned as the run's
         log. Without *workdir* it runs in a temporary directory. The release
         heights are added by the caller, as for any model
-        (:func:`stilt.transport.run_model`), and the near-field correction
-        when a footprint is made (:func:`stilt.calc_footprint`).
+        (:func:`runtraj.transport.run_model`).
 
         Raises
         ------
@@ -282,7 +281,7 @@ class HysplitModel:
             (:meth:`Met.check`).
         """
         if workdir is None:
-            with tempfile.TemporaryDirectory(prefix="stilt-") as tmp:
+            with tempfile.TemporaryDirectory(prefix="runtraj-") as tmp:
                 return self.run(release, config, met, window, Path(tmp), timeout)
         files = Met("met", met)
         source = files.files_for(window)

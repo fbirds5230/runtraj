@@ -1,42 +1,41 @@
 """
-The particle commands of the ``stilt`` command-line interface.
+The ``runtraj`` command-line interface.
 
-Each command opens a :class:`stilt.project.Project`, the particle part, calls
-it, and prints a short summary. The ``stilt`` command is these and
-``stilt init``, which starts a STILT project (:mod:`stilt.stilt_cli`).
+Each command opens a :class:`runtraj.Project`, calls it, and prints a short
+summary.
 Examples::
 
-    stilt check                       # list what would stop a run, before any run
-    stilt fetch                       # get the met files the runs need, once
-    stilt run                         # run, and wait until done
-    stilt run ./my_project --no-skip  # run every simulation again
-    stilt run --backend slurm         # run as a Slurm job array, and wait
-    stilt run --task 3/10             # run task 3 of 10 here (a job array's task)
-    stilt run --releases ids.txt     # run only the releases listed in ids.txt
-    stilt submit                      # submit a Slurm job array and return
-    stilt status                      # count finished simulations; list the settings folders
+    runtraj check                       # list what would stop a run, before any run
+    runtraj fetch                       # get the met files the runs need, once
+    runtraj run                         # run, and wait until done
+    runtraj run ./my_project --no-skip  # run every simulation again
+    runtraj run --backend slurm         # run as a Slurm job array, and wait
+    runtraj run --task 3/10             # run task 3 of 10 here (a job array's task)
+    runtraj run --releases ids.txt     # run only the releases listed in ids.txt
+    runtraj submit                      # submit a Slurm job array and return
+    runtraj status                      # count finished simulations; list the settings folders
 
-``stilt run`` exits with 0 when every simulation it ran is complete, 1 when
+``runtraj run`` exits with 0 when every simulation it ran is complete, 1 when
 some failed, and 3 when some did not finish because the run was
 interrupted (Ctrl-C, or SIGTERM from a scheduler), a worker process was killed
 (often for memory), or a connection or I/O error
-stopped them (an output bucket that stopped answering while a simulation wrote). ``stilt check`` exits
-with 0 when it finds nothing and 1 when it lists anything. ``stilt fetch``
+stopped them (an output bucket that stopped answering while a simulation wrote). ``runtraj check`` exits
+with 0 when it finds nothing and 1 when it lists anything. ``runtraj fetch``
 exits with 0 when every met file the runs need is there, 1 when the archive
 lacks some, and 3 when it was stopped (Ctrl-C or SIGTERM) or the archive was
 busy or unreachable. Every command
 exits with 2 when its command line is wrong (an unknown option, a bad value,
 or a directory that is not a project) or the project's files are invalid
 (``config.yaml`` that is not valid YAML or has a misspelled setting, a bad
-row in ``releases.csv``). ``stilt run`` and ``stilt submit`` also
+row in ``releases.csv``). ``runtraj run`` and ``runtraj submit`` also
 exit with 2 when a met directory does not exist or holds no ARL file, which
-``stilt check`` lists. ``stilt status`` does too, unless the output holds no
+``runtraj check`` lists. ``runtraj status`` does too, unless the output holds no
 result the project could own: then it counts every simulation as pending.
 
 An error the command did not expect ends it too, after its traceback: with
 3 when the error is a connection or an I/O error (a bucket that cannot be
 reached or is busy, a stale disk), which a retry may get past, and with 4 for
-any other (a bug in PYSTILT or the project, a bucket in the wrong region, a
+any other (a bug in runtraj or the project, a bucket in the wrong region, a
 403 or a 404, which a retry will repeat).
 ``is_transient`` sorts them.
 """
@@ -61,11 +60,11 @@ import yaml
 from pydantic import ValidationError
 from typer.core import TyperGroup
 
-from stilt._transient import is_transient
-from stilt.exceptions import MissingClass, WorkerDied
-from stilt.execution.config import ExecutionConfig
-from stilt.execution.runner import pending, resolve_compute_root
-from stilt.project import STATES, Project
+from runtraj._transient import is_transient
+from runtraj.exceptions import MissingClass, WorkerDied
+from runtraj.execution.config import ExecutionConfig
+from runtraj.execution.runner import pending, resolve_compute_root
+from runtraj.project import STATES, Project
 
 #: Exit codes. 2 is also Click's own for an unknown option or command, so a
 #: driver never takes a typo for a run to retry. 3 says "run it again": the
@@ -77,7 +76,7 @@ EXIT_COMPLETE, EXIT_FAILED, EXIT_USAGE, EXIT_INTERRUPTED, EXIT_BUG = 0, 1, 2, 3,
 
 class _Group(TyperGroup):
     """
-    The ``stilt`` command group, which ends a command that raised in an exit code.
+    The ``runtraj`` command group, which ends a command that raised in an exit code.
 
     Python's own exit code for an uncaught error is 1, which is also the
     code of a run whose simulations failed. A driver that decides on a
@@ -100,7 +99,7 @@ class _Group(TyperGroup):
             typer.echo("Interrupted.", err=True)
             raise typer.Exit(code=EXIT_INTERRUPTED) from None
         except BrokenPipeError:
-            raise  # stdout was closed (`stilt status | head`): Click ends quietly, with 1
+            raise  # stdout was closed (`runtraj status | head`): Click ends quietly, with 1
         except Exception as error:
             if type(error).__module__.partition(".")[0] in ("typer", "click"):
                 raise  # an exit, or a wrong command line: Click's own, and 2
@@ -109,13 +108,13 @@ class _Group(TyperGroup):
             what = "a connection or I/O error, which a retry may get past"
             if code == EXIT_BUG:
                 what = "an unexpected error, which a retry would repeat"
-            typer.echo(f"stilt exits with {code}: {what}.", err=True)
+            typer.echo(f"runtraj exits with {code}: {what}.", err=True)
             raise typer.Exit(code=code) from None
 
 
 app = typer.Typer(
-    name="stilt",
-    help="Run STILT simulations and check on a project.",
+    name="runtraj",
+    help="Run simulations and check on a project.",
     no_args_is_help=True,
     cls=_Group,
 )
@@ -129,7 +128,7 @@ logger = logging.getLogger(__name__)
 
 _PROJECT_ARG = typer.Argument(
     None,
-    help="Path of the STILT project. Defaults to the current directory.",
+    help="Path of the project. Defaults to the current directory.",
 )
 _NO_SKIP = typer.Option(
     False, "--no-skip", help="Run simulations again even if their outputs exist."
@@ -137,7 +136,7 @@ _NO_SKIP = typer.Option(
 _COMPUTE_ROOT = typer.Option(
     None,
     "--compute-root",
-    help="Directory the transport model runs under, a new workdir for each run. Defaults to PYSTILT_COMPUTE_ROOT, then $TMPDIR/pystilt/<project>.",
+    help="Directory the transport model runs under, a new workdir for each run. Defaults to RUNTRAJ_COMPUTE_ROOT, then $TMPDIR/runtraj/<project>.",
 )
 
 
@@ -163,7 +162,7 @@ def _resolve_project(path: str | Path | None) -> str:
     resolved = Path(raw).resolve()
     if not (resolved / "config.yaml").exists():
         typer.echo(
-            f"Error: '{resolved}' does not look like a STILT project directory "
+            f"Error: '{resolved}' does not look like a project directory "
             "(no config.yaml found).",
             err=True,
         )
@@ -185,7 +184,7 @@ def _open(
     A variant's settings folder is named by its met's weather product, read
     from the header of the met's first file. Without the file every command
     that counts or runs simulations would stop with a traceback;
-    ``stilt check`` lists the same problem as a finding.
+    ``runtraj check`` lists the same problem as a finding.
     """
     opened = Project(_resolve_project(project), output=output)
     if rows is not None:
@@ -211,7 +210,7 @@ def _require_inputs(project: Project) -> None:
 
 
 def _require_build(project: Project) -> None:
-    """Exit with 2 and the line ``stilt check`` lists when a variant's transport model cannot be found, such as no ``hycs_std``."""
+    """Exit with 2 and the line ``runtraj check`` lists when a variant's transport model cannot be found, such as no ``hycs_std``."""
     try:
         for variant in project.variants.values():
             _ = variant.build
@@ -220,7 +219,7 @@ def _require_build(project: Project) -> None:
 
 
 def _require_met(project: Project) -> None:
-    """Exit with 2 and the line ``stilt check`` lists when a variant's met cannot be read."""
+    """Exit with 2 and the line ``runtraj check`` lists when a variant's met cannot be read."""
     try:
         for variant in project.variants.values():
             _ = variant.met_settings
@@ -233,7 +232,7 @@ def _require_met(project: Project) -> None:
 # ---------------------------------------------------------------------------
 
 
-#: Rows of each check ``stilt check`` prints; ``project.check()`` has them all.
+#: Rows of each check ``runtraj check`` prints; ``project.check()`` has them all.
 _CHECK_ROWS = 10
 
 
@@ -389,7 +388,7 @@ def _start(
         backend = "local"
     # Progress is the worker's one line per finished release.
     logging.basicConfig(level=logging.WARNING, format="%(message)s")
-    logging.getLogger("stilt.execution").setLevel(logging.INFO)
+    logging.getLogger("runtraj.execution").setLevel(logging.INFO)
 
     # Each option replaces its setting in the block of the backend it is for.
     if backend is not None:
@@ -431,7 +430,7 @@ def _stop_once() -> Iterator[None]:
 
     A pod or a Slurm job is stopped with SIGTERM, which ends Python at once
     and skips the ``finally`` blocks that remove a download's partial file
-    (as for ``stilt run``, :func:`stilt.execution.worker._sigterm_as_interrupt`
+    (as for ``runtraj run``, :func:`runtraj.execution.worker._sigterm_as_interrupt`
     makes it raise instead). A second signal while that cleanup runs would
     raise again and could skip it, so after the first the rest stay ignored,
     through the exit. Handlers can be set only from the main thread;
@@ -480,10 +479,10 @@ def fetch(
     set downloads what is missing, cropped to its subgrid, so the runs that
     follow find every file and download nothing: run this once where the
     files are shared, before many workers start. A met without download is
-    only checked for missing files, as stilt check does. --releases limits
-    it to the releases listed in a file, as for stilt run; the fetch job
-    stilt submit sends before a job array reads its releases.parquet.
-    --no-skip gets the met of every simulation, for a stilt run --no-skip.
+    only checked for missing files, as runtraj check does. --releases limits
+    it to the releases listed in a file, as for runtraj run; the fetch job
+    runtraj submit sends before a job array reads its releases.parquet.
+    --no-skip gets the met of every simulation, for a runtraj run --no-skip.
     Exits with 0 when
     every file is there, 1 when the archive lacks some, 2 when the command
     line is wrong, the project's files are invalid or a met cannot be read, and 3 when stopped by Ctrl-C or
@@ -538,7 +537,7 @@ def run(
     Runs the transport model for each release and variant, then the footprint when the
     variant has one. Simulations whose outputs exist are skipped unless
     --no-skip is given. With the Slurm backend this submits a job array and
-    waits for it; use stilt submit to return as soon as it is submitted.
+    waits for it; use runtraj submit to return as soon as it is submitted.
 
     --releases limits the run to the releases listed in a file. --task
     I/N runs one share of them here, for each task of a job array or a
@@ -577,7 +576,7 @@ def run(
         _fail(str(error))
     except WorkerDied as error:
         # A worker was killed, most likely for memory; the message says what to do.
-        typer.echo(f"stilt run stopped: {error}", err=True)
+        typer.echo(f"runtraj run stopped: {error}", err=True)
         raise typer.Exit(code=EXIT_INTERRUPTED) from None
     if release_ids is None and share is None:
         _print_status(opened)
@@ -601,7 +600,7 @@ def submit(
 
     The releases are split among a Slurm job array's tasks, with the
     resources under execution in config.yaml. --releases limits it to the
-    releases listed in a file. Check on them with stilt status.
+    releases listed in a file. Check on them with runtraj status.
     """
     release_ids, rows = (None, None) if releases is None else _read_releases(releases)
     opened, options = _start(
@@ -718,13 +717,13 @@ def _status_data(
     project: Project, table: pd.DataFrame, folders: pd.DataFrame
 ) -> dict[str, Any]:
     """
-    Return what ``stilt status`` prints, as plain data.
+    Return what ``runtraj status`` prints, as plain data.
 
     *table* is the project's status table and *folders* its settings folders.
 
     ``simulations`` and ``variants`` count the simulations in each state,
     ``failed`` counts the failed ones by reason, and ``folders`` lists the
-    settings folders as :meth:`stilt.Project.folders` does.
+    settings folders as :meth:`runtraj.Project.folders` does.
     """
     failed = table.loc[table.state == "failed", "reason"]
     return {
@@ -819,7 +818,7 @@ def _print_folders(project: Project, table: pd.DataFrame) -> None:
     The folders no variant of this project uses (changed settings, a
     dropped variant, or another project sharing the output directory) follow
     under their own heading, with how their settings differ. *table* is
-    :meth:`stilt.Project.folders`.
+    :meth:`runtraj.Project.folders`.
     """
     typer.echo(f"Output: {project.output.directory}")
     if table.empty:
@@ -854,7 +853,7 @@ def _print_folders(project: Project, table: pd.DataFrame) -> None:
     lines(used, "    ")
     typer.echo(
         "  Not used by this project (changed settings, a dropped variant, or "
-        "another project sharing this output; PYSTILT never deletes one):"
+        "another project sharing this output; runtraj never deletes one):"
     )
     lines(others, "    ")
 
@@ -869,7 +868,7 @@ def _print_run_start(
     release_ids: list[str] | None = None,
     task: tuple[int, int] | None = None,
 ) -> None:
-    """Print the settings ``stilt run`` is about to use."""
+    """Print the settings ``runtraj run`` is about to use."""
     backend = execution.backend
     mode = "existing" if skip_existing else "no-skip"
     if task is not None:
@@ -887,7 +886,7 @@ def _print_run_start(
     if compute_root is not None:
         typer.echo(f"Compute root: {compute_root}")
     else:
-        typer.echo("Compute root: each task's own $TMPDIR (or PYSTILT_COMPUTE_ROOT)")
+        typer.echo("Compute root: each task's own $TMPDIR (or RUNTRAJ_COMPUTE_ROOT)")
     typer.echo(f"Releases loaded: {len(project.releases)}")
     if release_ids is not None:
         typer.echo(f"Releases listed: {len(release_ids)}")

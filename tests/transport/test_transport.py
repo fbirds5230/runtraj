@@ -5,14 +5,14 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from stilt.config import ProjectConfig
-from stilt.execution.worker import run_particles
-from stilt.meteorology import run_window
-from stilt.output import Output
-from stilt.particles import particles_metadata
-from stilt.simulation import Simulation
-from stilt.transport import MODELS, ModelRun, TransportConfig, get_model
-from stilt.transport.hysplit import HysplitConfig, HysplitModel, Met, MetConfig
+from runtraj.config import ProjectConfig
+from runtraj.execution.worker import run_particles
+from runtraj.meteorology import run_window
+from runtraj.output import Output
+from runtraj.particles import particles_metadata
+from runtraj.simulation import Simulation
+from runtraj.transport import ModelRun, get_model
+from runtraj.transport.hysplit import HysplitConfig, HysplitModel, Met, MetConfig
 from tests.fixtures.factories import blocks
 
 from ..fixtures.factories import make_met_config, make_met_files, make_variant
@@ -24,7 +24,7 @@ def test_get_model_returns_hysplit_by_name():
 
 
 def test_get_model_imports_a_model_by_its_path():
-    model = get_model("stilt.transport.hysplit.HysplitModel")
+    model = get_model("runtraj.transport.hysplit.HysplitModel")
     assert isinstance(model, HysplitModel)
     with pytest.raises(
         ImportError,
@@ -41,53 +41,10 @@ def test_get_model_names_the_models_it_knows():
         get_model("flexpart")
 
 
-def test_stilt_r_is_no_built_in_model():
-    # PYSTILT's model of imported runs is named by its import path.
-    assert list(MODELS) == ["hysplit"]
-    with pytest.raises(
-        ValueError,
-        match=r"Unknown transport model 'stilt-r'.*class: stilt\.stilt_r\.StiltRModel",
-    ):
-        get_model("stilt-r")
-
-
-def test_stilt_r_is_a_model_named_by_import_path_that_cannot_run(point_release):
-    from stilt.exceptions import SimulationError
-    from stilt.stilt_r import STILT_R_MODEL, StiltRMetConfig, StiltRModel
-
-    model = get_model(STILT_R_MODEL)
-    assert isinstance(model, StiltRModel)
-    met = StiltRMetConfig(met_path="/data/hrrr")
-    assert met.settings() == {"met_path": "/data/hrrr"}
-    window = run_window(point_release.time, -24)
-    with pytest.raises(SimulationError) as caught:
-        model.run(point_release, None, met, window)
-    assert caught.value.reason == "NOT_RUNNABLE"
-
-
-def test_stilt_r_settings_have_no_defaults():
-    from stilt.stilt_r import STILT_R_MODEL, StiltRConfig
-
-    settings = HysplitConfig(n_hours=-24).settings()
-    with pytest.raises(ValueError, match="missing: numpar"):
-        StiltRConfig.model_validate(
-            {k: v for k, v in settings.items() if k != "numpar"}
-        )
-    config = StiltRConfig.model_validate({**settings, "version": "1d936c1"})
-    with pytest.raises(ValueError, match="valid dictionary"):
-        StiltRConfig.model_validate(["not", "settings"])
-    # The version is a setting: it tells imports of two STILT-R versions apart.
-    assert config.settings() == {**settings, "version": "1d936c1"}
-    assert get_model(STILT_R_MODEL).version(config) == "1d936c1"
-    assert get_model(STILT_R_MODEL).sha256(config) is None
-    with pytest.raises(ValueError, match="missing: version"):
-        StiltRConfig.model_validate(settings)
-
-
 def test_hysplit_model_build_is_the_hycs_std_on_path_or_in_directory(tmp_path):
     import hashlib
 
-    from stilt.transport.hysplit import find_hycs_std
+    from runtraj.transport.hysplit import find_hycs_std
 
     from ..fixtures.factories import make_hysplit_dir
 
@@ -116,7 +73,7 @@ def test_the_settings_record_the_model_that_makes_the_particles(tmp_path):
 
 def _fake_hysplit(monkeypatch) -> dict:
     """Stand in for writing the inputs, running hycs_std, and reading its particles; return what they were given."""
-    from stilt.transport.hysplit import model as model_module
+    from runtraj.transport.hysplit import model as model_module
 
     seen: dict = {}
 
@@ -126,7 +83,7 @@ def _fake_hysplit(monkeypatch) -> dict:
 
     def run_hycs_std(workdir, timeout):
         seen["timeout"] = timeout
-        (workdir / "stilt.log").write_text("")
+        (workdir / "hysplit.log").write_text("")
         (workdir / "PARTICLE_STILT.DAT").write_text("")
 
     monkeypatch.setattr(model_module, "write_inputs", write_inputs)
@@ -190,7 +147,7 @@ def test_run_particles_goes_through_the_model_the_settings_name(
 
     asked: list[str] = []
     monkeypatch.setattr(
-        "stilt.transport.get_model", lambda name: asked.append(name) or _Model()
+        "runtraj.transport.get_model", lambda name: asked.append(name) or _Model()
     )
     met_config = make_met_config(tmp_path)
     variant = make_variant(met_config=met_config, n_hours=-1, numpar=1)
@@ -247,7 +204,7 @@ class _EchoModel:
 
 @pytest.fixture
 def echo(monkeypatch):
-    from stilt import transport
+    from runtraj import transport
 
     monkeypatch.setitem(transport.MODELS, "echo", _EchoModel)
     return _EchoModel
@@ -257,33 +214,8 @@ def _met(tmp_path) -> dict:
     return make_met_config(tmp_path)
 
 
-def test_run_trajectories_returns_the_particles_and_removes_its_workdir(
-    tmp_path, point_release, echo
-):
-    from stilt import run_trajectories
-
-    particles = run_trajectories(
-        point_release, _met(tmp_path), model="echo", n_hours=-24, numpar=50, timeout=9
-    )
-    # The footprint applies the near-field correction, not the run.
-    assert "foot_no_hnf_dilution" not in particles.columns
-
-    assert particles["particle"].unique().tolist() == [1]
-    # time is the release time plus age, as a table read from a file has.
-    expected = pd.Timestamp(point_release.time) + pd.to_timedelta(
-        particles["age"], unit="min"
-    )
-    pd.testing.assert_series_equal(particles["time"], expected, check_names=False)
-    assert echo.seen["config"].numpar == 50
-    assert echo.seen["timeout"] == 9
-    assert echo.seen["met"].directory == tmp_path.resolve()
-    assert echo.seen["workdir"] is None  # the model makes its own when it needs one
-    start, end = echo.seen["window"]
-    assert end == point_release.time and (end - start).total_seconds() == 24 * 3600
-
-
 def test_run_trajectories_keeps_a_workdir_it_was_given(tmp_path, point_release, echo):
-    from stilt import run_trajectories
+    from runtraj import run_trajectories
 
     run_trajectories(
         point_release,
@@ -304,7 +236,7 @@ def test_run_trajectories_keeps_a_workdir_it_was_given(tmp_path, point_release, 
 
 
 def test_run_trajectories_checks_the_models_parameters(tmp_path, point_release, echo):
-    from stilt import run_trajectories
+    from runtraj import run_trajectories
 
     with pytest.raises(ValueError, match="nparticles"):
         run_trajectories(
@@ -314,58 +246,8 @@ def test_run_trajectories_checks_the_models_parameters(tmp_path, point_release, 
         run_trajectories(point_release, _met(tmp_path), model="echo")
 
 
-def test_finish_leaves_foot_for_the_footprint_to_correct():
-    """The near-field correction is the footprint's: a run's particles keep the model's foot."""
-    from stilt.transport import _finish
-
-    particles = _positions_only().assign(
-        foot=[1e-5, 2e-5], dens=1.2, samt=1.0, sigw=0.1, tlgr=10.0, mlht=500.0
-    )
-    run = _finish(
-        ModelRun(particles, met_files=[]), _release(), TransportConfig(n_hours=-24)
-    )
-
-    assert run.particles["foot"].tolist() == [1e-5, 2e-5]
-    assert "foot_no_hnf_dilution" not in run.particles.columns
-
-
-def _positions_only() -> pd.DataFrame:
-    """Particles of a transport model that writes only positions."""
-    return pd.DataFrame(
-        {
-            "particle": [1, 1],
-            "age": [-1.0, -2.0],
-            "lon": [-111.9, -112.0],
-            "lat": [40.7, 40.6],
-            "zagl": [5.0, 900.0],
-        }
-    )
-
-
-def test_finish_adds_no_foot_to_a_model_that_writes_none(tmp_path):
-    """A particle file holds what the model wrote: the footprint computes foot when it needs one."""
-    from stilt.transport import _finish
-
-    run = _finish(
-        ModelRun(_positions_only(), log="model log\n", met_files=[tmp_path / "met"]),
-        _release(),
-        TransportConfig(n_hours=-24),
-    )
-
-    assert "foot" not in run.particles.columns
-    assert run.log == "model log\n"
-
-
-@pytest.mark.parametrize("setting", ["footprint_depth", "pbl_height", "pbl_height_min"])
-def test_a_transport_config_has_none_of_the_footprints_foot_settings(setting):
-    from pydantic import ValidationError
-
-    with pytest.raises(ValidationError, match=setting):
-        TransportConfig(n_hours=-24, **{setting: 100.0})
-
-
 def _release():
-    from stilt.releases import PointRelease
+    from runtraj.releases import PointRelease
 
     return PointRelease(
         time="2023-01-01 12:00", longitude=-111.9, latitude=40.7, altitude=5.0
