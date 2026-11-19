@@ -1,24 +1,14 @@
 Getting Started
 ===============
 
-If you are new to PYSTILT, read these pages in order.
+New to runtraj? Read these in order.
 
-1. :doc:`what_is_stilt` explains what a footprint is and how STILT makes one.
-2. :doc:`installation` installs the package.
-3. :doc:`quickstart` runs one simulation and plots its footprint.
-
-The :doc:`glossary` defines STILT's terms, such as release, footprint,
-``numpar``, and ARL. Keep it open in another tab.
-
-Already know another STILT, such as STILT-R or X-STILT? Start with
-:ref:`Coming from another STILT <coming-from-another-stilt>`, then come back
-to the quickstart.
+1. :doc:`installation` installs the package and says where to get HYSPLIT.
+2. :doc:`quickstart` runs one release, then the same release as a project.
 
 .. toctree::
    :maxdepth: 1
    :hidden:
 
-   what_is_stilt
    installation
    quickstart
-   glossary

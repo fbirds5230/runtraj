@@ -3,15 +3,14 @@ Project And Output
 
 A project is a folder holding ``config.yaml`` and ``releases.csv``. Its
 results go to the output directory that ``config.yaml`` names, one tree per
-kind of result with a folder per set of settings (see
-:doc:`../guides/projects` and :ref:`finished-work`). Most
-users only need :class:`stilt.Project`. ``project.output`` is the
-:class:`~stilt.output.Output`.
+kind of result with a folder per set of settings (:doc:`layout`). Most
+users only need :class:`runtraj.Project`. ``project.output`` is the
+:class:`~runtraj.output.Output`.
 
 Project
 -------
 
-:class:`stilt.Project` is documented with the :doc:`core`.
+:class:`runtraj.Project` is documented with the :doc:`core`.
 
 Output directory
 ----------------
@@ -20,6 +19,5 @@ Output directory
    :toctree: _api
    :nosignatures:
 
-   stilt.output.Output
-   stilt.output.completed
-   stilt.footprint.Jacobian
+   runtraj.output.Output
+   runtraj.output.completed

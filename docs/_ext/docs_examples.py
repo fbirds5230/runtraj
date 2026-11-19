@@ -1,5 +1,5 @@
 """
-Helpers for the docs pages that run real PYSTILT code when the docs are built.
+Helpers for the docs pages that run real runtraj code when the docs are built.
 
 The pages run on the HRRR files the tests cache: 14 and 15 January 2021,
 cropped around Salt Lake. A page that works with a project on disk starts from
@@ -22,7 +22,7 @@ The docs' maps are drawn on USGS shaded-relief tiles kept in ``docs/_tiles``,
 so a build needs no network for them and every build draws the same maps
 (``docs/conf.py`` calls :func:`use_tiles`). A map whose tiles are not there
 fails the build. To add them, build the docs once with
-``PYSTILT_DOCS_FETCH_TILES=1``, which downloads each missing tile, and commit
+``RUNTRAJ_DOCS_FETCH_TILES=1``, which downloads each missing tile, and commit
 what it added to ``docs/_tiles``.
 """
 
@@ -58,7 +58,7 @@ TILE_CREDIT = (
 )
 
 #: Set to 1 to download the tiles a build needs and does not have.
-FETCH_TILES = "PYSTILT_DOCS_FETCH_TILES"
+FETCH_TILES = "RUNTRAJ_DOCS_FETCH_TILES"
 
 _temporary_folders: list[Path] = []
 
@@ -69,7 +69,7 @@ def met() -> dict:
 
     plt.close("all")  # the pages share one session; a page starts with no figures
     default = DOCS.parent / "tests" / "met_cache"
-    directory = Path(os.environ.get("STILT_TEST_MET_DIR", default)).resolve()
+    directory = Path(os.environ.get("RUNTRAJ_TEST_MET_DIR", default)).resolve()
     if not directory.is_dir():
         raise FileNotFoundError(
             f"{directory} is missing. The docs run on the met files the tests "
@@ -80,14 +80,14 @@ def met() -> dict:
 
 def sample_project() -> Path:
     """Return the folder of the sample project, building it the first time."""
-    import stilt
+    import runtraj
 
     project = SAMPLE / "my_project"
     marker = SAMPLE / "complete"
     if not marker.exists():
         shutil.rmtree(SAMPLE, ignore_errors=True)
         releases = [
-            stilt.PointRelease(
+            runtraj.PointRelease(
                 time=f"2021-01-15 {hour:02d}:00",
                 longitude=-111.848,
                 latitude=40.766,
@@ -95,17 +95,11 @@ def sample_project() -> Path:
             )
             for hour in SAMPLE_HOURS
         ]
-        grid = stilt.Grid(
-            xmin=-113.0, xmax=-110.5, ymin=40.0, ymax=42.0, xres=0.01, yres=0.01
-        )
-        stilt.Project.init(
+        runtraj.Project.init(
             str(project),
             releases=releases,
             mets={"hrrr": met()},
             models={"hysplit": {"n_hours": -24, "numpar": 200, "krand": 2, "seed": 42}},
-            stages={
-                "footprint": {"class": "stilt.footprint.FootprintStage", "grid": grid}
-            },
             variants={"hrrr": {}},
         ).run()
         marker.touch()
@@ -121,7 +115,7 @@ def _fetch_tile(tile: tuple[int, int, int], path: Path) -> None:
             f"with {FETCH_TILES}=1 to download it, then commit the new tiles."
         )
     request = Request(
-        TILE_SERVER.format(x=x, y=y, z=z), headers={"User-Agent": "PYSTILT docs"}
+        TILE_SERVER.format(x=x, y=y, z=z), headers={"User-Agent": "runtraj docs"}
     )
     try:
         with urlopen(request, timeout=30) as response:
@@ -163,7 +157,7 @@ def use_tiles() -> None:
     A map that is given a ``tiler`` keeps it. The service's credit for the
     tiles is written on each new map.
     """
-    import stilt.visualization as visualization
+    import runtraj.visualization as visualization
 
     make_ax = visualization._make_ax
     if getattr(make_ax, "on_committed_tiles", False):

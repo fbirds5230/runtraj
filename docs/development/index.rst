@@ -2,23 +2,13 @@ Development
 ===========
 
 Contributions are welcome: bug reports, documentation fixes, and code. See
-`CONTRIBUTING.md <https://github.com/jmineau/PYSTILT/blob/main/CONTRIBUTING.md>`_
+`CONTRIBUTING.md <https://github.com/jmineau/runtraj/blob/main/CONTRIBUTING.md>`_
 for conventions and for how to write the docs, and open issues on
-`GitHub <https://github.com/jmineau/PYSTILT/issues>`_.
+`GitHub <https://github.com/jmineau/runtraj/issues>`_.
 
 :doc:`architecture`
    How the code is organized, how a run goes from a project to result files,
-   and how PYSTILT knows which work is finished.
-
-:doc:`stilt_r_parity`
-   What "matches STILT-R" covers, and how to move to a newer STILT-R commit.
-
-:doc:`validation`
-   How closely results match a reference, as measured, with the test behind
-   each number.
-
-:doc:`roadmap`
-   What is implemented and what is planned.
+   and how runtraj knows which work is finished.
 
 Use of AI coding agents
 -----------------------
@@ -32,7 +22,7 @@ orientation file it should read.
 Set up a development environment
 --------------------------------
 
-PYSTILT uses `uv <https://docs.astral.sh/uv/>`_ and
+runtraj uses `uv <https://docs.astral.sh/uv/>`_ and
 `just <https://github.com/casey/just>`_. From a clone of the repository:
 
 .. code-block:: bash
@@ -55,6 +45,3 @@ Common tasks:
    :hidden:
 
    architecture
-   stilt_r_parity
-   validation
-   roadmap

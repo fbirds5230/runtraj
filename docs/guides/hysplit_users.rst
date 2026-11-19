@@ -1,8 +1,8 @@
-PYSTILT For HYSPLIT Users
+runtraj For HYSPLIT Users
 =========================
 
 If you run HYSPLIT to find where air came from or where a release went,
-PYSTILT runs the same particle model, ``hycs_std``, from Python. It writes
+runtraj runs the same particle model, ``hycs_std``, from Python. It writes
 ``CONTROL`` and ``SETUP.CFG`` from a few settings, finds or downloads the
 ARL met files, and returns every particle's position at every time step as
 a pandas table. For many starting times and places, and for the same runs
@@ -19,26 +19,24 @@ folder of its own. It runs the ``hycs_std`` you already have: set
 
    met_dir = docs_examples.met()
 
-HYSPLIT's words in PYSTILT
+HYSPLIT's words in runtraj
 --------------------------
 
-PYSTILT comes from STILT, which follows air backward from a measurement and
-calls the time and place its particles start from a *receptor*. PYSTILT
-calls it a *release* (receptor), and for you it is the starting time and
-starting locations of ``CONTROL``:
+runtraj calls the time and place particles start from a *release*. For
+you it is the starting time and starting locations of ``CONTROL``:
 
 .. list-table::
    :header-rows: 1
    :widths: 45 55
 
    * - In HYSPLIT
-     - In PYSTILT
+     - In runtraj
    * - A starting time and one starting location
-     - A :class:`~stilt.PointRelease`
+     - A :class:`~runtraj.PointRelease`
    * - Several starting locations at one time
-     - A :class:`~stilt.MultiPointRelease`
+     - A :class:`~runtraj.MultiPointRelease`
    * - Two heights at one location, a line source
-     - A :class:`~stilt.ColumnRelease`
+     - A :class:`~runtraj.ColumnRelease`
    * - ``KMSL``, heights above ground or above sea level
      - The release's ``altitude_ref``, ``"agl"`` or ``"msl"``
    * - The settings of one ``CONTROL`` and ``SETUP.CFG``
@@ -49,18 +47,18 @@ starting locations of ``CONTROL``:
 One run
 -------
 
-:func:`stilt.run_trajectories` runs HYSPLIT once and returns the particles.
+:func:`runtraj.run_trajectories` runs HYSPLIT once and returns the particles.
 Here 1,000 particles leave Salt Lake City at 500 m above ground during one
 hour and are followed 6 hours forward:
 
 .. ipython:: python
 
-   import stilt
+   import runtraj
 
-   start = stilt.PointRelease(
+   start = runtraj.PointRelease(
        time="2021-07-15 01:00", longitude=-111.85, latitude=40.77, altitude=500
    )
-   cloud = stilt.run_trajectories(
+   cloud = runtraj.run_trajectories(
        start, met_dir, n_hours=6, numpar=1000, emisshrs=1.0,
        krand=2, seed=42,
    )
@@ -70,10 +68,10 @@ hour and are followed 6 hours forward:
 backward. ``emisshrs`` is the hours of emission, and ``zagl`` the height
 above ground in meters. The other columns are the met at each particle that
 ``varsiwant`` asks for, by HYSPLIT's names (``mlht``, ``pres``, ``dens``,
-...), and ``foot`` is HYSPLIT's own: PYSTILT changes it only when it
-makes a footprint. ``krand=2`` with a ``seed`` makes the run repeatable.
+...), and ``foot`` is HYSPLIT's own. ``krand=2`` with a ``seed`` makes the
+run repeatable.
 
-The met is the folder of your ARL files. PYSTILT reads which times each
+The met is the folder of your ARL files. runtraj reads which times each
 file holds from its header, and gives HYSPLIT the ones the run needs.
 :doc:`meteorology` shows how to download them from NOAA instead.
 
@@ -88,7 +86,7 @@ particle with turbulence off follows the same path, so ``numpar=1`` and
 
 .. ipython:: python
 
-   path = stilt.run_trajectories(
+   path = runtraj.run_trajectories(
        start, met_dir, n_hours=6, numpar=1, nturb=1
    )
    path[["time", "lon", "lat", "zagl"]].iloc[[0, 59, 179, 359]]
@@ -122,15 +120,14 @@ So the mean of many particles is the center of a cloud that spreads as it
 goes, which is a different thing from a trajectory. For a trajectory, run one
 particle.
 For several trajectories from one time, use a
-:class:`~stilt.MultiPointRelease` with ``numpar`` equal to its number of
+:class:`~runtraj.MultiPointRelease` with ``numpar`` equal to its number of
 locations: HYSPLIT gives each location one particle.
 
 Many runs: a project
 --------------------
 
 A project runs every starting point under every variant, and runs again
-only what is missing. A ``config.yaml`` with no ``stages`` block makes
-particles and no footprints. Here every start runs on HRRR with two vertical motion
+only what is missing. Here every start runs on HRRR with two vertical motion
 options, each kept in its own folder:
 
 .. code-block:: yaml
@@ -156,19 +153,18 @@ The starting points go in ``releases.csv``, one row each:
    2021-07-15 01:00:00,-111.85,40.77,500
    2021-07-15 13:00:00,-111.85,40.77,500
 
-``stilt run ./my_project`` runs them here, and ``stilt submit
+``runtraj run ./my_project`` runs them here, and ``runtraj submit
 ./my_project`` as a Slurm job array (:doc:`slurm`). Then read the particles
 of any selection of runs as one table:
 
 .. code-block:: python
 
-   project = stilt.Project("my_project")
+   project = runtraj.Project("my_project")
    sims = project.simulations
    particles = project.particles(sims[sims.variant == "hrrr-w6"])
 
 For an ensemble of the same run with different turbulence, give a variant
-``realizations: 10`` with ``krand: 2`` and a ``seed``
-(:doc:`projects`).
+``realizations: 10`` with ``krand: 2`` and a ``seed``.
 
 Where each ``CONTROL`` and ``SETUP.CFG`` line comes from
 --------------------------------------------------------
@@ -178,10 +174,7 @@ same name in lowercase, such as ``numpar``, ``kmixd`` or ``tlfrac``
 (:doc:`../reference/configuration` lists them). Each defaults to HYSPLIT's
 own value in STILT mode. A setting HYSPLIT decides only after reading the
 file (``capemin``, ``kblt``, ``kmixd``, ``krand``, ``vscales``) is left out
-unless you give it, so HYSPLIT chooses. ``stilt init`` writes STILT-R's
-values for a few of them into a new project's config
-(:doc:`migration/stilt_r`); delete those lines to run HYSPLIT's. PYSTILT
-writes the rest itself:
+unless you give it, so HYSPLIT chooses. runtraj writes the rest itself:
 
 .. list-table::
    :header-rows: 1
@@ -214,22 +207,20 @@ writes the rest itself:
    * - ``SETUP.CFG`` ``DELT``, ``ICHEM``, ``KAGL``, ``CMASS`` and 37 more
      - Fixed: STILT mode overrides them, or only concentration grids, puffs,
        dump files or other HYSPLIT programs read them
-       (:data:`~stilt.transport.hysplit.config.FIXED_SETUP`)
+       (:data:`~runtraj.transport.hysplit.config.FIXED_SETUP`)
 
 To read the files of one run, pass ``workdir="run"`` to
-:func:`~stilt.run_trajectories`: the folder keeps ``CONTROL``,
+:func:`~runtraj.run_trajectories`: the folder keeps ``CONTROL``,
 ``SETUP.CFG``, HYSPLIT's ``MESSAGE`` and the particle file.
 
-What PYSTILT leaves to other tools
+What runtraj leaves to other tools
 ----------------------------------
 
-PYSTILT runs ``hycs_std`` in its STILT mode (``ICHEM=8``), which writes
+runtraj runs ``hycs_std`` in its STILT mode (``ICHEM=8``), which writes
 particle positions and the met along them. Concentration grids
 (``cdump``), puffs and ``tdump`` trajectory files come from HYSPLIT run on
 its own, and NOAA's `monetio <https://github.com/noaa-oar-arl/monetio>`_
-reads those files in Python. A footprint of a species that decays,
-deposits or reacts with OH does not need HYSPLIT's deposition: PYSTILT
-scales each particle by the fraction that survives (:doc:`transforms`), so
-one run serves every species.
+reads those files in Python.
 
-When a run fails, :doc:`checking` says how to find why.
+When a run fails, ``project.status()`` gives its reason and
+``sim.log`` HYSPLIT's log of it.

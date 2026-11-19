@@ -4,7 +4,7 @@ Running
 The same project runs on your computer or on an HPC cluster, and only the
 ``execution`` section of ``config.yaml`` changes. We start every project on
 a laptop or one node with a few releases, because a mistake shows up in
-minutes there, and move it to Slurm once the footprints look right.
+minutes there, and move it to Slurm once the results look right.
 
 .. list-table::
    :header-rows: 1
@@ -23,7 +23,7 @@ minutes there, and move it to Slurm once the footprints look right.
      - An ``execution`` section with your account and partition
    * - :doc:`containers`
      - You run many containers at once, such as a Kubernetes Job.
-     - A volume the containers share, and ``stilt run --task``
+     - A volume the containers share, and ``runtraj run --task``
 
 Run a project
 -------------
@@ -32,22 +32,22 @@ From the command line:
 
 .. code-block:: bash
 
-   stilt run ./my_project
+   runtraj run ./my_project
 
 From Python or a notebook:
 
 .. code-block:: python
 
-   import stilt
+   import runtraj
 
-   project = stilt.Project("./my_project")
+   project = runtraj.Project("./my_project")
    project.run()
 
 Both run every simulation that isn't finished yet and return when they are
 done. ``project.run()`` returns the status table of the simulations it ran,
 one row per simulation with a ``state`` column. Both read and write the
-same project folder, so you can mix them: run with ``stilt run`` and
-analyze in a notebook with ``stilt.Project("./my_project")``.
+same project folder, so you can mix them: run with ``runtraj run`` and
+analyze in a notebook with ``runtraj.Project("./my_project")``.
 
 A finished simulation is skipped, so running again only runs what is left.
 ``--no-skip`` (``project.run(skip_existing=False)``) runs every simulation
@@ -66,7 +66,7 @@ To run several releases at once, set ``cpus`` in the ``local`` block of
      local:
        cpus: 4
 
-or, for one run, ``stilt run ./my_project --cpus 4``. Each of the ``cpus``
+or, for one run, ``runtraj run ./my_project --cpus 4``. Each of the ``cpus``
 processes runs one release at a time, with all of that release's
 variants. Set it to the number of CPU cores you can spare, because each
 HYSPLIT run uses one core. A Slurm run has its own ``cpus``, per array task,
@@ -80,13 +80,13 @@ script runs again in every worker. ``Project.init`` there stops with a
 
 .. code-block:: python
 
-   import stilt
+   import runtraj
 
    if __name__ == "__main__":
-       project = stilt.Project("./my_project")
+       project = runtraj.Project("./my_project")
        project.run()
 
-``stilt run --cpus 4`` and a ``cpus`` of 1 need no guard.
+``runtraj run --cpus 4`` and a ``cpus`` of 1 need no guard.
 
 You can stop a run at any time with Ctrl-C (or ``SIGTERM`` from ``kill``,
 Slurm or Kubernetes). Releases that finished stay finished, and running
@@ -94,7 +94,7 @@ again starts the ones that were cut off from the beginning.
 
 If a worker process is killed outright, most often by the kernel's
 out-of-memory killer, the run stops with an error
-(:class:`~stilt.exceptions.WorkerDied`) and ``stilt run`` exits with 3. The pool
+(:class:`~runtraj.exceptions.WorkerDied`) and ``runtraj run`` exits with 3. The pool
 cannot say which release the worker held, so the error names every release
 that was in progress. Nothing is marked failed and what finished stays
 finished: run it again and only what is missing runs, with a lower ``cpus`` or
@@ -110,7 +110,7 @@ releases to the project folder without running anything.
 
 .. code-block:: python
 
-   project = stilt.Project("./my_project")
+   project = runtraj.Project("./my_project")
    release_ids = project.add_releases(releases)
 
 Any machine that can see the folder can then run the project. To run only
@@ -120,41 +120,36 @@ the new releases, every variant of each, give their ids:
 
    project.run(releases=release_ids)
 
-``stilt run --releases ids.txt`` does the same from a file with one id
+``runtraj run --releases ids.txt`` does the same from a file with one id
 per line.
 
 Commands
 --------
 
-``stilt init <project>``
-   Create a project folder with a starter ``config.yaml`` and
-   ``releases.csv``.
-
-``stilt check <project>``
+``runtraj check <project>``
    List what would stop the project's runs, before any run starts, such as
    met files a release's run needs that are not there, a release outside
-   the met's crop or the footprint grid, or a transform's input that is
-   missing. Nothing is run or downloaded. It exits with 0 when it finds
-   nothing and 1 when it lists anything (:doc:`checking` lists every
+   the met's crop, or what a stage finds missing. Nothing is run or downloaded. It exits with 0 when it finds
+   nothing and 1 when it lists anything (:pystilt:`PYSTILT's page on checking a run <guides/checking>` lists every
    check).
 
-``stilt fetch <project>``
+``runtraj fetch <project>``
    Get the met files the unfinished simulations need, then exit. A met with
    ``download`` downloads what is missing, cropped to its subgrid, so the
    runs that follow download nothing; a met without it is only checked for
    missing files. ``--releases FILE`` and ``--output DIR`` are as for
-   ``stilt run``. It exits with 0 when every file is there, 1 when the
+   ``runtraj run``. It exits with 0 when every file is there, 1 when the
    archive lacks some, and 3 when it was stopped (Ctrl-C or SIGTERM) or the
    archive was busy or unreachable (:ref:`fetch-once`).
 
-   ``stilt submit`` and ``stilt run`` fetch first on their own: on Slurm in
+   ``runtraj submit`` and ``runtraj run`` fetch first on their own: on Slurm in
    a job the array waits for (:ref:`slurm-fetch`), and locally before the
-   workers start when ``cpus`` is above 1. Run ``stilt fetch`` yourself to
+   workers start when ``cpus`` is above 1. Run ``runtraj fetch`` yourself to
    see whether the archive has every file before you submit, or before you
-   start tasks with ``stilt run --task`` from another scheduler, which does
+   start tasks with ``runtraj run --task`` from another scheduler, which does
    not fetch first (:doc:`containers`).
 
-``stilt run <project>``
+``runtraj run <project>``
    Run every unfinished simulation and wait until they are done, here or
    as a Slurm job array. Its options:
 
@@ -172,17 +167,17 @@ Commands
    - ``--task I/N`` runs task ``I`` of ``N`` here, as one task of a job
      array (:doc:`containers`).
 
-``stilt submit <project>``
+``runtraj submit <project>``
    Submit the unfinished simulations to Slurm as a job array, and return as
    soon as it is submitted (:doc:`slurm`).
 
-``stilt status <project>``
+``runtraj status <project>``
    Count finished and remaining simulations, and the failed ones by reason.
    List the settings folders in the output directory and which variants
    use them. ``--json`` prints the same as JSON, for a program to read.
 
 Every command exits with 0 when all went well, 1 when some simulations
-failed or ``stilt check`` found something, and 3 when a run was stopped
+failed or ``runtraj check`` found something, and 3 when a run was stopped
 before it finished, so a script can rerun on 3 (:ref:`exit-codes` lists
 every code).
 
@@ -190,8 +185,8 @@ When a simulation fails
 -----------------------
 
 A failed simulation doesn't stop the others. The worker records why it
-failed and goes on, and the next ``stilt run`` tries it again.
-``stilt status`` counts the failures by reason, and :doc:`checking` says
+failed and goes on, and the next ``runtraj run`` tries it again.
+``runtraj status`` counts the failures by reason, and :pystilt:`PYSTILT's page on checking a run <guides/checking>` says
 what each reason means and where to look.
 
 .. toctree::

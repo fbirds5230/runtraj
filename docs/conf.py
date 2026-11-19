@@ -1,4 +1,4 @@
-"""Sphinx configuration for the live PYSTILT docs."""
+"""Sphinx configuration for the live runtraj docs."""
 
 from __future__ import annotations
 
@@ -26,10 +26,10 @@ PYDANTIC_AUTODOC_EXCLUDES = {
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "PYSTILT"
+project = "runtraj"
 copyright = "2026, James Mineau"
 author = "James Mineau"
-release = _version("pystilt")  # from git tags, via setuptools-scm
+release = _version("runtraj")  # from git tags, via setuptools-scm
 version = release
 # Builds from main (and local builds) are "dev"; release builds are their version.
 version_match = "dev" if (".dev" in release or "+" in release) else release
@@ -44,6 +44,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.extlinks",
     "sphinx.ext.githubpages",
     "matplotlib.sphinxext.plot_directive",  # `.. plot::` runs code, shows the figure
     "IPython.sphinxext.ipython_directive",  # `.. ipython::` runs code in an .rst page
@@ -53,6 +54,9 @@ extensions = [
     "sphinx_design",
     "api_pages",  # _ext/api_pages.py: which members a class page lists; after autodoc
 ]
+
+# :pystilt:`words <guides/page>` links to a page of PYSTILT's docs.
+extlinks = {"pystilt": ("https://jmineau.github.io/PYSTILT/stable/%s.html", "%s")}
 
 templates_path = ["_templates"]
 exclude_patterns = [
@@ -80,9 +84,9 @@ if (_static / "favicon.ico").exists():
 
 html_theme_options = {
     "announcement": (
-        "PYSTILT is in alpha: names and options may change between releases."
+        "runtraj is in alpha: names and options may change between releases."
     ),
-    "github_url": "https://github.com/jmineau/PYSTILT",
+    "github_url": "https://github.com/jmineau/runtraj",
     "show_toc_level": 2,
     "navbar_align": "left",
     "navigation_depth": 3,
@@ -96,7 +100,7 @@ html_theme_options = {
     # The version dropdown. The Documentation workflow publishes dev/ (main),
     # one folder per release and stable/, and writes switcher.json listing them.
     "switcher": {
-        "json_url": "https://jmineau.github.io/PYSTILT/switcher.json",
+        "json_url": "https://jmineau.github.io/runtraj/switcher.json",
         "version_match": version_match,
     },
     "check_switcher": False,  # switcher.json exists only on the deployed site
@@ -107,12 +111,12 @@ html_theme_options = {
 
 html_context = {
     "github_user": "jmineau",
-    "github_repo": "PYSTILT",
+    "github_repo": "runtraj",
     "github_version": "main",
     "doc_path": "docs",
-    "og_description": "A Python implementation of the STILT Lagrangian atmospheric transport model.",
+    "og_description": "Run particle dispersion models at scale.",
     "og_image": (
-        "https://raw.githubusercontent.com/jmineau/PYSTILT/main/docs/_static/social-preview.png"
+        "https://raw.githubusercontent.com/jmineau/runtraj/main/docs/_static/social-preview.png"
         if (_static / "social-preview.png").exists()
         else ""
     ),
@@ -153,23 +157,15 @@ autodoc_typehints = "description"
 autodoc_mock_imports = ["cartopy"]
 
 autodoc_type_aliases = {
-    "ProjectConfig": "stilt.config.ProjectConfig",
-    "Release": "stilt.releases.Release",
-    # Two documented classes of each name: the particle part's, which the
-    # workers and stages take, and STILT's subclass (stilt.Project). A hint
-    # names the class its module imports, and modules of the core import the
-    # particle part's.
-    "Project": "stilt.project.Project",
-    "Simulation": "stilt.simulation.Simulation",
+    "ProjectConfig": "runtraj.config.ProjectConfig",
+    "Release": "runtraj.releases.Release",
+    "Project": "runtraj.Project",
+    "Simulation": "runtraj.Simulation",
 }
 
 # Autosummary settings
 autosummary_generate = True
 autosummary_generate_overwrite = True
-# The function stilt.background and the class Background would get pages
-# whose names differ only by case, which overwrite each other on macOS and
-# Windows.
-autosummary_filename_map = {"stilt.Background": "stilt.Background-class"}
 set_type_checking_flag = True
 
 # Examples run when the docs build, so they show real output and fail the build
@@ -258,8 +254,8 @@ def reexported_data_comment(
     Give module data that a package re-exports the comment where it is written.
 
     autodoc looks for the ``#:`` comment of module data in the module the page
-    names it under. ``stilt.particles`` only imports ``FOOTPRINT_COLUMNS``
-    from ``stilt.particles.table``, so its page showed the docstring of the
+    names it under. ``runtraj.particles`` only imports ``PARTICLE_SCHEMA``
+    from ``runtraj.particles.table``, so its page showed the docstring of the
     object's type ("Built-in immutable sequence.") and not the comment. This
     takes the comment from the first module, the named one or a submodule
     already imported, that holds the object under that name and comments it.

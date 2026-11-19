@@ -2,9 +2,9 @@ Meteorology
 ===========
 
 Each transport model reads its meteorology from a met config of its own.
-HYSPLIT's, :class:`~stilt.transport.hysplit.MetConfig`, holds the settings
+HYSPLIT's, :class:`~runtraj.transport.hysplit.MetConfig`, holds the settings
 for one met in ``config.yaml``: ARL files in a directory, or an archive to
-download. :class:`~stilt.transport.hysplit.Met` finds the files a
+download. :class:`~runtraj.transport.hysplit.Met` finds the files a
 simulation needs, downloads them when ``download`` is set, and crops them
 when asked. See :doc:`../guides/meteorology` for how to set it up.
 
@@ -12,9 +12,9 @@ when asked. See :doc:`../guides/meteorology` for how to set it up.
    :toctree: _api
    :nosignatures:
 
-   stilt.transport.hysplit.MetConfig
-   stilt.transport.hysplit.Met
-   stilt.meteorology.run_window
+   runtraj.transport.hysplit.MetConfig
+   runtraj.transport.hysplit.Met
+   runtraj.meteorology.run_window
 
 How a met finds its files
 -------------------------
@@ -26,7 +26,7 @@ Which files a run reads
 
 Each ARL file's first index record gives its
 first time, its grid and the size of a time step, and the second gives the
-spacing, so PYSTILT chooses files by their headers and never by their names.
+spacing, so runtraj chooses files by their headers and never by their names.
 Files are found anywhere under ``directory``, and links are followed. Lock
 files, backup copies ending in ``~``, names ending in ``.partial`` or
 ``.bad``, and anything that is not an ARL file (such as a README) are
@@ -35,7 +35,7 @@ skipped.
 HYSPLIT interpolates between the met steps on either side of each of its
 times, so a run needs the files from the step at or before its start to the
 step at or after its end: the release of a backward run, the end of a
-forward one (:meth:`Met.files_for <stilt.transport.hysplit.Met.files_for>`).
+forward one (:meth:`Met.files_for <runtraj.transport.hysplit.Met.files_for>`).
 With 6-hour HRRR files of hourly steps, a backward run released at 23:30
 needs the next day's first file, and one released at 23:00 does not. With
 daily NAM12 files of 3-hourly steps (00:00 to 21:00), a run released at
@@ -48,7 +48,7 @@ The catalog
 
 What the files hold is kept in a table per folder, in ``catalogs/`` inside
 ``subgrid_dir``, or under ``$XDG_CACHE_HOME`` (else ``~/.cache``) without
-one. ``stilt check`` brings it up to date; otherwise the first simulation builds it while the
+one. ``runtraj check`` brings it up to date; otherwise the first simulation builds it while the
 others wait. A simulation reads the table, and looks in the folder again
 only when the table has no file for one of its hours or a file it chose has
 changed. Files of two products or two grids that hold the same time fail
@@ -72,7 +72,7 @@ Crops
 
 Each crop gets a folder inside ``subgrid_dir``, named by a hash of
 ``subgrid_bounds`` and ``subgrid_levels``
-(:attr:`Met.crop_dir <stilt.transport.hysplit.Met.crop_dir>`), so a new crop
+(:attr:`Met.crop_dir <runtraj.transport.hysplit.Met.crop_dir>`), so a new crop
 box starts a new folder and projects with the same box share one. Old
 folders are not deleted. The crops have a catalog of their own, so a crop
 serves a run by the hours its header holds, whatever it is named and
@@ -88,18 +88,18 @@ The weather product is read from the header of the
 first file in ``directory`` (a download's comes from its archive) when the
 project's settings folders are first needed, to run or to read results. So
 ``directory`` must hold the files on the machine that opens the project
-(:meth:`MetConfig.settings <stilt.transport.hysplit.MetConfig.settings>`).
+(:meth:`MetConfig.settings <runtraj.transport.hysplit.MetConfig.settings>`).
 
 Wind-error statistics
 ---------------------
 
 Variograms of analysis-minus-observation winds. Fit them to get the
-wind-error settings for a transport-error run (:ref:`wind-error-statistics`).
+wind-error settings of a run (:pystilt:`PYSTILT's page on transport error <guides/transport_error>`).
 
 .. autosummary::
    :toctree: _api
    :nosignatures:
 
-   stilt.meteorology.variogram
-   stilt.meteorology.fit_variogram
-   stilt.meteorology.VariogramFit
+   runtraj.meteorology.variogram
+   runtraj.meteorology.fit_variogram
+   runtraj.meteorology.VariogramFit

@@ -1,4 +1,4 @@
-"""Sphinx helpers for rendering PYSTILT config model tables."""
+"""Sphinx helpers for rendering runtraj config model tables."""
 
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ def _format_type(annotation: Any) -> str:
         rendered = stringify_annotation(annotation, mode="smart")
     except TypeError:
         rendered = stringify_annotation(annotation)
-    return rendered.replace("stilt.config.", "")
+    return rendered.replace("runtraj.config.", "")
 
 
 def _format_default(field: Any) -> str:

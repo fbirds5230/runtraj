@@ -1,48 +1,38 @@
 Core Objects
 ============
 
-.. currentmodule:: stilt
+.. currentmodule:: runtraj
 
-The project, its releases, the simulations it runs, and their outputs.
+The project, its releases, the simulations it runs, and their particles.
 
 One release, without a project
 -------------------------------
 
 :func:`run_trajectories` runs the transport model for one release and
-returns its particles, and :func:`calc_footprint` makes a footprint from
-them. :func:`footprint.footprint_particles` gives the particles the
-``foot`` a footprint's settings ask for, as a project's footprint stage
-does. A project runs the same two steps for each of its releases and
-stores the results.
+returns its particles. A project runs the same step for each of its
+releases and stores the results.
 
 .. code-block:: python
 
-   particles = stilt.run_trajectories(release, met, n_hours=-24, numpar=200)
-   foot = stilt.calc_footprint(particles, release, grid)
+   particles = runtraj.run_trajectories(release, met, n_hours=-24, numpar=200)
 
 .. autosummary::
    :toctree: _api
    :nosignatures:
 
    run_trajectories
-   calc_footprint
-   footprint.footprint_particles
 
 Project interface
 -----------------
 
-:class:`Project` is what you open a project with. It is the particle part,
-:class:`project.Project`, which runs the transport model and reads the
-particles, with the reads of what STILT makes from the particles added: the
-footprints, the Jacobian, and the transport error of a selection. Both open
-the same directory; the workers use the particle part.
+:class:`Project` is what you open a project with. It runs the transport
+model, and each stage the project lists, and reads the results.
 
 .. autosummary::
    :toctree: _api
    :nosignatures:
 
    Project
-   project.Project
 
 Release objects
 ----------------
@@ -64,32 +54,26 @@ Release objects
 Simulation objects
 ------------------
 
-A :class:`~stilt.config.Variant` is one variant of a project, resolved: its configs, its
+A :class:`~runtraj.config.Variant` is one variant of a project, resolved: its configs, its
 met, the transport model build, and the hashes that find its results.
 ``project.variants`` holds them, and :meth:`ProjectConfig.resolve` makes
-them from a config.
-
-:class:`Simulation`, which ``project.simulation(release_id, variant)``
-returns, adds the footprint, the background and the transport error to the
-particle part, :class:`simulation.Simulation`, which the workers and the
-stages are given.
+them from a config. :class:`Simulation` is one release under one variant,
+which ``project.simulation(release_id, variant)`` returns.
 
 .. autosummary::
    :toctree: _api
    :nosignatures:
 
    Simulation
-   simulation.Simulation
    config.Variant
 
 Settings and their hashes
 -------------------------
 
-:mod:`stilt.identity` records what a run was made with, as its folder's
+:mod:`runtraj.identity` records what a run was made with, as its folder's
 ``_settings.yaml`` holds it, and hashes it. A stage records its own settings
-(:meth:`stilt.stages.Stage.settings`; the footprint's are
-:func:`~stilt.footprint.config.footprint_settings`), which are hashed with
-the particles' hash and the hash of each stage it reads. A stored record is
+(:meth:`runtraj.stages.Stage.settings`), which are hashed with the
+particles' hash and the hash of each stage it reads. A stored record is
 read back through the current config classes, so a setting added since, with
 a default, still matches.
 
@@ -103,19 +87,14 @@ a default, still matches.
    identity.stage_hash
    identity.settings_hash
    identity.file_stamp
-   footprint.config.footprint_settings
-   footprint.config.read_footprint_settings
    transport.ModelInfo
 
-Particles and footprints
-------------------------
+Particles
+---------
 
-A simulation's particles are a pandas DataFrame and its footprint an xarray
-DataArray. PYSTILT's methods on them are under ``.stilt``:
-:class:`~stilt.stilt_particles.ParticlesAccessor` (the particle part's
-:class:`~stilt.particles.ParticlesAccessor` with ``enhancement`` added) and
-:class:`~stilt.footprint.FootprintAccessor`. The functions below read and
-write particle and footprint files without a project.
+A simulation's particles are a pandas DataFrame. runtraj's methods on them
+are under ``.runtraj`` (:class:`~runtraj.particles.ParticlesAccessor`). The
+functions below read and write particle files without a project.
 
 .. autosummary::
    :toctree: _api
@@ -124,47 +103,7 @@ write particle and footprint files without a project.
    read_particles
    particles.particles_metadata
    particles.write_particles
-   read_footprint
-   footprint.write_footprint
-   footprint.write_empty_footprint
-   footprint.open_footprints
-   stilt_particles.ParticlesAccessor
    particles.ParticlesAccessor
-   footprint.FootprintAccessor
-
-Output of STILT-R and X-STILT
------------------------------
-
-:mod:`stilt.migration` reads the ``out/by-id`` folder of a STILT-R or
-X-STILT project as releases, particle tables, and footprints, and imports
-it into an output directory, where a ``stilt-r`` variant reads it
-(:doc:`/guides/migration/stilt_r`).
-
-.. autosummary::
-   :toctree: _api
-   :nosignatures:
-
-   migration.read_stilt_r
-   migration.import_stilt_r
-
-What the particles give beyond the footprint
---------------------------------------------
-
-The background mole fraction at a release, from a field sampled where
-the particles end (:doc:`/guides/background`), and the transport error of
-the modeled enhancement, from a wind-error variant
-(:doc:`/guides/transport_error`). With a project they are
-``sim.background(field)`` and ``sim.transport_error(error_sim, flux)``.
-Both weight the particles the way the footprint does.
-
-.. autosummary::
-   :toctree: _api
-   :nosignatures:
-
-   background
-   Background
-   transport_error
-   TransportError
 
 Simulation tables
 -----------------
@@ -172,63 +111,24 @@ Simulation tables
 ``project.releases`` is a pandas DataFrame with one row per release, and
 ``project.simulations`` one with one row per simulation. Select rows as in
 pandas, then pass the selection to the project's :meth:`~Project.status`,
-:meth:`~Project.incomplete`, :meth:`~Project.particles`,
-:meth:`~Project.footprints`, :meth:`~Project.jacobian`, or
-:meth:`~Project.transport_error`.
+:meth:`~Project.incomplete`, or :meth:`~Project.particles`.
 
 .. code-block:: python
 
    sims = project.simulations
    wbb = sims[(sims.variant == "hrrr") & (sims.site == "WBB")]
-   feet = project.footprints(wbb)
+   particles = project.particles(wbb)
 
-.. currentmodule:: stilt
+Grids and boxes
+---------------
 
-Spatial geometries
-------------------
-
-The cells ``foot.stilt.aggregate`` sums a footprint into, such as
-polygons, hexagons, windows around point sources, or groups of grid cells.
-A :class:`Grid` works as well. It is documented under :doc:`configuration`.
+A :class:`Grid` and a :class:`Bounds` are documented under
+:doc:`configuration`. :mod:`runtraj.spatial` has the CRS helpers.
 
 .. autosummary::
    :toctree: _api
    :nosignatures:
 
-   Mesh
-   Zones
-   footprint.Geometry
-
-:mod:`stilt.footprint` also has the helpers that compute how much of each
-footprint cell falls in each target cell. These overlap weights are cached,
-so each geometry's weights are computed once per footprint grid.
-:mod:`stilt.spatial` has the CRS helpers.
-
-.. autosummary::
-   :toctree: _api
-   :nosignatures:
-
-   footprint.overlap_weights
-   footprint.check_resolution
    spatial.same_crs
    spatial.is_longlat
    spatial.horizontal_dims
-
-Sampling fields
----------------
-
-:mod:`stilt.sampling` looks up a gridded field at points: a surface flux
-under a footprint or along particle paths (``foot.stilt.enhancement``,
-``particles.stilt.enhancement``), or a mole-fraction field at particle
-endpoints (:func:`stilt.background`). :func:`~stilt.sampling.sample_met`
-reads ARL met files at particle positions, for the particle columns a
-transport model can write from the met.
-
-.. autosummary::
-   :toctree: _api
-   :nosignatures:
-
-   sampling.sample_field
-   sampling.sample_met
-   sampling.vertical_dim
-   sampling.nearest_cell

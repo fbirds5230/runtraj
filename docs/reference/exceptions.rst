@@ -1,21 +1,21 @@
 Exceptions
 ==========
 
-Every exception PYSTILT raises is a :class:`stilt.StiltError`, so one
+Every exception runtraj raises is a :class:`runtraj.RuntrajError`, so one
 ``except`` clause catches them all:
 
 .. code-block:: python
 
-   import stilt
+   import runtraj
 
    try:
        project.run()
-   except stilt.StiltError as error:
-       print(f"PYSTILT stopped: {error}")
+   except runtraj.RuntrajError as error:
+       print(f"runtraj stopped: {error}")
 
 Each one also subclasses the builtin that describes it. A
-:class:`~stilt.exceptions.SimulationError` is a ``RuntimeError`` and a
-:class:`~stilt.exceptions.HYSPLITNotFoundError` is a ``FileNotFoundError``,
+:class:`~runtraj.exceptions.SimulationError` is a ``RuntimeError`` and a
+:class:`~runtraj.exceptions.HYSPLITNotFoundError` is a ``FileNotFoundError``,
 so an ``except`` for the builtin catches it too. Plain input checks, such as
 a negative particle count, raise ``ValueError``.
 
@@ -26,15 +26,15 @@ Base class
    :toctree: _api
    :nosignatures:
 
-   stilt.StiltError
+   runtraj.RuntrajError
 
 Failed runs
 -----------
 
-A worker records a :class:`~stilt.exceptions.SimulationError` as a failed
-simulation (:attr:`stilt.Simulation.failure`). Its ``reason`` is a short
+A worker records a :class:`~runtraj.exceptions.SimulationError` as a failed
+simulation (:attr:`runtraj.Simulation.failure`). Its ``reason`` is a short
 name for the cause: for HYSPLIT, one of
-:class:`stilt.transport.hysplit.FailureReason`, such as ``MET_COVERAGE``,
+:class:`runtraj.transport.hysplit.FailureReason`, such as ``MET_COVERAGE``,
 ``NO_PARTICLE_DATA``, or ``TIMEOUT``. A run that the meteorology does not
 cover fails as ``MET_COVERAGE``.
 
@@ -42,13 +42,13 @@ cover fails as ``MET_COVERAGE``.
    :toctree: _api
    :nosignatures:
 
-   stilt.exceptions.SimulationError
-   stilt.exceptions.MeteorologyError
+   runtraj.exceptions.SimulationError
+   runtraj.exceptions.MeteorologyError
 
 Stopped runs
 ------------
 
-A run on ``cpus`` above 1 raises :class:`~stilt.exceptions.WorkerDied` when a
+A run on ``cpus`` above 1 raises :class:`~runtraj.exceptions.WorkerDied` when a
 worker process is killed outright, as the out-of-memory killer does. It is not
 a failed simulation: nothing is recorded, and running again continues.
 
@@ -56,34 +56,21 @@ a failed simulation: nothing is recorded, and running again continues.
    :toctree: _api
    :nosignatures:
 
-   stilt.exceptions.WorkerDied
+   runtraj.exceptions.WorkerDied
 
 Setup
 -----
 
 A project does not open on a machine where a class its ``config.yaml``
 names by import path is not installed
-(:class:`~stilt.exceptions.MissingClass`, an ``ImportError``): a transport
+(:class:`~runtraj.exceptions.MissingClass`, an ``ImportError``): a transport
 model or a stage in another package. The message names the package to
-install, and the ``stilt`` commands exit with 2.
+install, and the ``runtraj`` commands exit with 2.
 
 .. autosummary::
    :toctree: _api
    :nosignatures:
 
-   stilt.exceptions.HYSPLITNotFoundError
-   stilt.exceptions.MissingClass
+   runtraj.exceptions.HYSPLITNotFoundError
+   runtraj.exceptions.MissingClass
 
-Empty footprints
-----------------
-
-:class:`~stilt.exceptions.EmptyFootprint` is a finished result, not a
-failure. :func:`stilt.calc_footprint` raises it when no particle
-reaches the grid, and a run writes a footprint file with no rows, marked
-empty (:doc:`layout`).
-
-.. autosummary::
-   :toctree: _api
-   :nosignatures:
-
-   stilt.exceptions.EmptyFootprint

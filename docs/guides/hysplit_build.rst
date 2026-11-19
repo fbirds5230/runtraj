@@ -1,8 +1,8 @@
 Your Own HYSPLIT Build And Data Tables
 ======================================
 
-PYSTILT runs the HYSPLIT you give it (:doc:`../getting_started/installation`):
-a newer HYSPLIT, a build with a fix STILT-R's lacks, or your own data
+runtraj runs the HYSPLIT you give it (:doc:`../getting_started/installation`):
+a newer HYSPLIT, a build with a fix, or your own data
 tables, such as a higher-resolution land use.
 
 A HYSPLIT build
@@ -35,12 +35,12 @@ compare two builds on the same releases:
      hrrr: {}
      hrrr-v532: {directory: /path/to/hysplit-5.3.2}
 
-Without ``directory``, PYSTILT runs the first ``hycs_std`` on ``PATH``, with
+Without ``directory``, runtraj runs the first ``hycs_std`` on ``PATH``, with
 the tables of a ``bdyfiles/`` folder beside the folder it is in.
 
 Two builds can give different particles from the same settings, so a run
 records the SHA-256 of the ``hycs_std`` it ran, and runs of different
-builds go to different settings folders (:doc:`projects`). A rebuilt or
+builds go to different settings folders (:pystilt:`PYSTILT's page on projects and variants <guides/projects>`). A rebuilt or
 updated ``hycs_std`` starts new folders even when it behaves the same. The
 folder ``hycs_std`` is in is not recorded: moving a build keeps its results.
 
@@ -51,29 +51,29 @@ builds apart: two builds of one release print the same, and some builds
 print an older release than they are.
 
 A machine without ``hycs_std``, such as one that only reports status,
-still opens a project. ``stilt status`` finds each variant's folder by the
+still opens a project. ``runtraj status`` finds each variant's folder by the
 variant's name and its other settings, and exits with 2 when the variant
 has folders from two builds.
 
 A build that writes each particle's release as a row at ``age = 0`` gives
 exact release heights for multipoint and slant releases. HYSPLIT 5.1.0
-writes its first row one time step after release, and PYSTILT matches
+writes its first row one time step after release, and runtraj matches
 each particle to its release point from that first position
 (:doc:`../reference/particles`).
 
-What a build reads from PYSTILT
+What a build reads from runtraj
 -------------------------------
 
-PYSTILT writes HYSPLIT's ``CONTROL`` file with the met files as one grid,
+runtraj writes HYSPLIT's ``CONTROL`` file with the met files as one grid,
 listed in time. HYSPLIT reads at most 128 files of one grid (``mtim`` in
-its ``DEFGRID.INC``), in STILT-R's build and in NOAA's, so a run can
+its ``DEFGRID.INC``), so a run can
 read at most 128 met files: 32 days of 6-hour files, or about 5 days of
 hourly ones. A run that needs more stops with ``Numb meteo times exceed
 DEFGRID limit`` in its log.
 
-STILT-R lists each file as its own grid instead, which NOAA's builds limit
-to 12 files a run and STILT-R's build to 99 (``mgrd``). The particles
-are the same either way.
+Listing each file as its own grid instead, as STILT-R does, is limited to
+12 files a run in NOAA's builds (``mgrd``). The particles are the same
+either way.
 
 To rerun a kept workdir by hand, you can edit its ``CONTROL`` file. A
 ``#`` starts a comment on the start time, the starting locations, and the
@@ -85,14 +85,14 @@ Data tables
 
 HYSPLIT's data tables (``ASCDATA.CFG``, ``LANDUSE.ASC``, ``ROUGLEN.ASC``,
 ``TERRAIN.ASC``) set the land use, roughness, and terrain under the
-particles. PYSTILT reads them from the ``bdyfiles/`` folder of
+particles. runtraj reads them from the ``bdyfiles/`` folder of
 ``directory``, or, without ``directory``, from a ``bdyfiles/`` beside the
 folder of the ``hycs_std`` on ``PATH``. It includes none, and a run stops
 before it starts when one of the four is missing. To use your own, put them
 there.
 
 HYSPLIT's own ``ASCDATA.CFG`` says the tables are in ``../bdyfiles/``.
-PYSTILT links them into each run's workdir instead, so it writes
+runtraj links them into each run's workdir instead, so it writes
 ``ASCDATA.CFG`` there with that line set to ``./`` and the rest as yours.
 
 The tables change the particles, so a run records the checksum of each,

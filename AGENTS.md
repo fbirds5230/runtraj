@@ -1,12 +1,10 @@
 # AGENTS.md
 
-Orientation for contributors and coding agents working on PYSTILT: the
+Orientation for contributors and coding agents working on runtraj: the
 architecture, the invariants that must not break, and the development
-workflow. User docs: `docs/` and <https://jmineau.github.io/PYSTILT>. Longer
+workflow. User docs: `docs/` and <https://jmineau.github.io/runtraj>. Longer
 references: [CONTRIBUTING.md](CONTRIBUTING.md) (setup, checks, recipes,
-building, releasing), [docs/development/architecture.rst](docs/development/architecture.rst)
-(module map, runs, finished work, configuration internals, implementation notes), and
-[docs/development/stilt_r_parity.rst](docs/development/stilt_r_parity.rst) (STILT-R parity).
+building, releasing) and [docs/development/architecture.rst](docs/development/architecture.rst).
 
 > **Keep this file current.** If you change the module layout, the build/test
 > commands, or learn a new invariant or gotcha, update the matching section in
@@ -21,132 +19,117 @@ building, releasing), [docs/development/architecture.rst](docs/development/archi
 
 ## Overview
 
-PYSTILT is a Python implementation of **STILT** (Stochastic Time-Inverted
-Lagrangian Transport). It drives **HYSPLIT** for backward (or forward) particle
-trajectories and computes gridded footprints for releases. It is alpha
-software (`0.1.0a*`): **there are no backward-compatibility guarantees before
-v1.0**, so prefer the clean design over a compatibility shim.
+runtraj runs particle dispersion models at scale: projects of releases and
+variants, settings folders, completion by file, `run` and `submit`,
+realizations, the met catalog, and the transport models. It is not a model.
+**HYSPLIT** is the model built in; another model, and what is made from the
+particles after a run (a **stage**), plug in by the import path of a class.
+It is alpha software: **there are no backward-compatibility guarantees
+before v1.0**, so prefer the clean design over a compatibility shim.
 
-- **Names.** Say `pystilt` (the PyPI name) only for installing, the
-  repository, and docs URLs; the import name and the CLI are `stilt`. The R
-  implementation ([uataq/stilt](https://github.com/uataq/stilt)) is
-  **STILT-R**, never "R-STILT"; identifiers such as the `r_stilt` fixtures and
-  `STILT_R_DIR` keep their names.
-- **Release** is what STILT-R calls a receptor: `releases.csv`, the `release`
-  column, `--releases`, `group` for `r_idx`, and the classes `PointRelease`,
-  `ColumnRelease`, `MultiPointRelease`. Docs write "release (receptor)".
-- **Particle columns** get plain names for HYSPLIT's and STILT-R's `indx`,
-  `time`, `long`, `lati`, `xhgt` (`docs/reference/particles.rst`).
+- **Where it came from.** runtraj is the particle-run core of
+  [PYSTILT](https://github.com/jmineau/PYSTILT), which is built on it and
+  adds STILT's footprints as a stage. The history before the first commit
+  here that says runtraj is PYSTILT's, and an issue number in it, or
+  `PYSTILT#123` in a comment, is one of PYSTILT's. runtraj never imports
+  `stilt` and knows nothing of STILT-R.
+- **A change that breaks a plug-in** (the stage or transport model
+  protocols, or the output layout) raises the minor version: PYSTILT requires
+  a range of runtraj up to the next one.
+- **Release** is the time and place a run starts from: `releases.csv`, the
+  `release` column, `--releases`, `group`, and the classes `PointRelease`,
+  `ColumnRelease`, `MultiPointRelease`. A release placed at a measurement and
+  followed backward is what STILT calls a receptor.
+- **Particle columns** get plain names for HYSPLIT's `indx`, `time`, `long`,
+  `lati` (`docs/reference/particles.rst`).
 - **Config** is what the user writes, always a class next to the code that
-  uses it (`ProjectConfig`, `FootprintConfig`, `HysplitConfig`, ...).
+  uses it (`ProjectConfig`, `HysplitConfig`, `ExecutionConfig`, ...).
   **Settings** are what a result was made with, as recorded; never a class.
-- **Sister projects.** STILT-R gives the transport science;
-  [stiltctl](https://github.com/jmineau/air-tracker-stiltctl) the thin CLI →
-  `Project` → worker path; [X-STILT](https://github.com/uataq/X-STILT) the
-  observation layer and column science (concepts ported, not feature parity).
 
 ## Architecture
 
 **There is no index, manifest, or registry.** A project is a directory of
 inputs (`Project`: `config.yaml`, `releases.csv`) and an output directory
 (`Output`) that `config.yaml` names and several projects can share. Its
-simulations are **releases × variants** (at least one variant). Each `Variant` (`stilt.config`) has
+simulations are **releases × variants** (at least one variant). Each `Variant` (`runtraj.config`) has
 run settings, whose hash names its particles folder, and the settings of each
-stage it uses, hashed with what the stage reads (`stilt.identity`); variants
+stage it uses, hashed with what the stage reads (`runtraj.identity`); variants
 with equal run settings share one run per release, and a changed setting
 hashes to a new folder (`docs/reference/layout.rst`). **A stage** makes one
-file per release after the model runs; the footprint is one. `config.yaml`
-names its class by import path, in a block named for the stage, and the class provides `stilt.stages.Stage`,
-so the core handles any stage and imports none (`CONTRIBUTING.md`, "Adding a stage").
+file per release after the model runs. `config.yaml` names its class by
+import path, in a block named for the stage, and the class provides
+`runtraj.stages.Stage`, so the core handles any stage and imports none
+(`CONTRIBUTING.md`, "Adding a stage").
 
 **`Project` reads; the workers write results.** `Project` writes only its
 inputs (`config.yaml` once, at `Project.init`; `add_releases` appends to
 `releases.csv`; `add_table` writes `tables/<name>.parquet`) and knows no
-scheduler or compute root; `stilt.execution.run` and `submit` start the
+scheduler or compute root; `runtraj.execution.run` and `submit` start the
 workers. **Tables are plain DataFrames; the verbs are on `Project`**: a
 selection of `project.simulations` (any table with `release` and `variant`
-columns, or a mask) goes to `status`, `incomplete`, `particles`, `footprints`,
-`jacobian`, or `transport_error`. Do not wrap the table in a class again. `Output` has no folder
-classes: its methods take the kind (`particles` or a stage's name).
-`stilt.__all__` (and each subpackage's) is the public surface.
+columns, or a mask) goes to `status`, `incomplete`, or `particles`. Do not
+wrap the table in a class again. `Output` has no folder classes: its methods
+take the kind (`particles` or a stage's name). `runtraj.__all__` (and each
+subpackage's) is the public surface.
 
-**`stilt.Project` and `stilt.Simulation` only add reads** to the particle part's
-classes (`stilt_project.py`, `stilt_simulation.py`); they override only
-`simulation` (returns `stilt.Simulation`) and `init` (`tests/test_stilt_project.py`). Workers and stages
-get the particle classes; nothing on disk names the subclasses.
+**A package that adds a stage may subclass `Project` and `Simulation`** with
+the reads of what its stage makes, as PYSTILT does. Workers and stages get
+runtraj's classes; nothing on disk names a subclass.
 
 ```
-src/stilt/
-  cli.py          Typer CLI, the particle commands;  stilt_cli.py  the stilt command, with stilt init
-  project.py      Project, the particle part: inputs, the simulations table, run/submit, status
-  stilt_project.py  stilt.Project: footprints, jacobian, transport_error; init with STILT-R's values
+src/runtraj/
+  cli.py          the runtraj command (Typer)
+  project.py      Project: inputs, the simulations table, run/submit, status
   check.py        check_project: what would stop a project's runs, from its inputs
   fetch.py        fetch_project: gets the met files the unfinished simulations need
-  migration.py    read_stilt_r, import_stilt_r: STILT-R and X-STILT by-id output, read with rdata
-  stilt_r.py      StiltRModel, the stilt-r model of imported runs (runs nothing), named by import path
   output.py       Output: the output directory; `completed`, the completion rule
-  simulation.py   Simulation, the particle part: a frozen (release, variant, output) value
-  stilt_simulation.py  stilt.Simulation: footprint, calc_footprint, background, transport_error, plot
+  simulation.py   Simulation: a frozen (release, variant, output) value
   config.py       ProjectConfig and Variant;  identity.py  settings records, hashes
   stages.py       the Stage protocol, get_stage, check_stage;  _plugins.py  a class by import path
   releases/       release models, releases.csv, shared validation
-  particles/      the particle table and files, release heights;  stilt_particles.py  .stilt with enhancement
-  footprint/      FootprintConfig, FootprintStage, calc_footprint (gridding.py), foot (add_foot,
-                  the near-field correction), aggregation, io, targets
-  transforms/     pre-footprint particle transforms, one module each
+  particles/      the particle table and files, release heights, the particles.runtraj accessor
   transport/      TransportModel/TransportConfig protocols, MODELS (hysplit), get_model, run_model
     hysplit/      config, met, catalog, driver, CONTROL and SETUP.CFG writers, failures
   execution/      ExecutionConfig (a block per backend), runner (plan, local run, Slurm submit), worker
-  observations/   the X-STILT port (readers, sounding selection, slant releases, columns);
-                  releases along a moving platform's track (tracks.py)
-  background.py, transport_error.py, meteorology.py, sampling.py, spatial.py, visualization.py
-  (stilt_visualization.py: footprint and simulation plots), exceptions.py, _paths.py
+  meteorology.py, spatial.py, visualization.py, exceptions.py, _paths.py
 ```
 
-**A run** (`stilt run`, `Project.run()`, `submit()`) happens in this process
-or as a Slurm job array whose tasks each run `stilt run --task i/N`. The unit
+**A run** (`runtraj run`, `Project.run()`, `submit()`) happens in this process
+or as a Slurm job array whose tasks each run `runtraj run --task i/N`. The unit
 of work is a release: the worker runs the model once per run-settings hash,
 then each missing stage file of the variants that share the particles, a
 stage after the ones it `reads` and again when one of those was remade
 (`run_release`, `run_stages`); a batched model
 (`batched = True`) first runs a variant group's releases in one call.
-**Observation-driven** work sits above the core: `stilt.observations` turns
-soundings into releases, then a run goes as usual. Keep it out of `project.py`.
 
 The import contracts in `pyproject.toml` (`just imports`) hold this shape: an
 exhaustive `layers` contract (a new top-level module fails until placed), only
-`stilt.transport` imports HYSPLIT's package, the project config reads no results
-and runs nothing, and the core imports none of STILT's side (its ignores are all
-within STILT's side; a module there over a core module is `stilt_<name>`). Slurm tasks rebuild the project in another process, so anything a worker
-needs must be in the project or the output directory.
+`runtraj.transport` imports HYSPLIT's package, and the project config reads no
+results and runs nothing. Slurm tasks rebuild the project in another process,
+so anything a worker needs must be in the project or the output directory.
 
 `ProjectConfig` is `config.yaml`'s blocks, and no setting sits outside one: `mets`,
-`models` (`hysplit` unless set), `stages` (the footprint, by its `class`), `variants`.
+`models` (`hysplit` unless set), `stages`, `variants`.
 Each part owns its config class; the base `TransportConfig` gets a parameter only
-when the core reads it. Config classes do no I/O when they validate; `resolve` reads
-geometries and asks the model its version. `HysplitConfig` has HYSPLIT's own defaults
-(`n_hours` none); `stilt init` and `stilt.Project.init` write STILT-R's (`STILT_R_HYSPLIT`).
+when the core reads it. Config classes do no I/O when they validate; `resolve` asks
+each stage to read the files its settings name, and the model its version.
+`HysplitConfig` has HYSPLIT's own defaults (`n_hours` none).
 
 ## Invariants
 
-- **STILT-R parity** at `rtol=1e-7` per footprint cell against a pinned commit
-  (`docs/development/stilt_r_parity.rst`). Run the `fidelity` suite before merging a change to
-  trajectory or footprint math. NetCDF output is CF-1.8, deliberately not
-  byte-compatible with STILT-R.
 - **Completion is by file.** A simulation is complete when the model's
   output file exists, and so does the file of every stage its variant uses;
-  `stilt.output.completed` is the one rule, over folder listings. Never add
+  `runtraj.output.completed` is the one rule, over folder listings. Never add
   another, a completion registry, or a manifest.
 - **Bulk methods work from listings** and release ids, never a `Simulation`
-  per row; they open a file per row only when its contents are the answer
-  (`footprints`, `jacobian`).
+  per row.
 - **One code path for a disk and an object store, no store class.**
   `Output.directory` is a `Path` (local fast path) or a `UPath` (`path.fs`);
-  see `stilt._paths`. A local output must stay as fast: time a large listing.
-- **Identity is content.** PYSTILT never deletes or overwrites a results folder.
+  see `runtraj._paths`. A local output must stay as fast: time a large listing.
+- **Identity is content.** runtraj never deletes or overwrites a results folder.
 - **The CLI stays thin.** Orchestration does not belong in `cli.py`.
 - **Meteorology I/O goes through [arlmet](https://github.com/jmineau/arl-met).**
-- **PYSTILT ships no HYSPLIT file**: `directory/exec/hycs_std` and `bdyfiles/`, else `PATH`. The SHA-256
+- **runtraj ships no HYSPLIT file**: `directory/exec/hycs_std` and `bdyfiles/`, else `PATH`. The SHA-256
   of `hycs_std` is in the particles hash, read on first use (`Variant.build`); its
   printed version is recorded as `model_version`, never hashed. Without `hycs_std` a
   project opens and `Output` compares on `Variant.readable_run_settings`.
@@ -175,17 +158,14 @@ Driven by [`just`](https://github.com/casey/just) and
 
 ### Tests
 
-`just test` runs every test without one of three disjoint markers. Warnings
+`just test` runs every test without the `integration` marker. Warnings
 are errors (a test that expects one uses `pytest.warns`). CI runs `-m integration`
-in `tests.yml`, `-m fidelity` and `-m r_only` in `stilt-r.yml` (the paths at its top):
+in `tests.yml`:
 
 - `integration`: end to end with real met files and HYSPLIT. Needs a `hycs_std` on
-  `PATH` (unit tests get a stand-in) and `STILT_TEST_MET_DIR` (HRRR ARL files) or
-  `STILT_TEST_FETCH_MET=1` (downloads seven 6 h blocks, 23.9 GB in all, and keeps
+  `PATH` (unit tests get a stand-in) and `RUNTRAJ_TEST_MET_DIR` (HRRR ARL files) or
+  `RUNTRAJ_TEST_FETCH_MET=1` (downloads seven 6 h blocks, 23.9 GB in all, and keeps
   211 MB in the ignored `tests/met_cache/`); otherwise they skip.
-- `fidelity`: PYSTILT against STILT-R, both running HYSPLIT. Needs the met,
-  `STILT_R_DIR` (a STILT-R checkout built as `stilt-r.yml` builds it), `Rscript`.
-- `r_only`: STILT-R comparisons with no met or HYSPLIT (`STILT_R_DIR`, `Rscript`).
 
 Docstring examples (`>>>` lines under `src/`) run as tests too
 (`--doctest-modules`), so an example that stops matching the code fails
@@ -193,12 +173,8 @@ Docstring examples (`>>>` lines under `src/`) run as tests too
 `# doctest: +SKIP` on its `>>>` line.
 
 pytest loads a local `.env` for such variables. Test folders follow the
-package. `tests/observations/` is self-contained (its own `conftest.py` and
-`data/`, never `tests/conftest.py`'s fixtures). Committed test data stays
-small: slices of public products (TROPOMI, TCCON, OCO-2/3) keep the granule's
-own name and are cut by `tests/observations/data/products/make_samples.py`.
-Retrievals that are not public (GGG, EM27) stay synthetic files with the real
-format's quirks. Never commit met files.
+package. The toy stages in `tests/fixtures/stages.py` stand for a stage in
+another package; a test never imports `stilt`. Never commit met files.
 
 ### Code conventions
 
@@ -214,11 +190,10 @@ format's quirks. Never commit met files.
 - pyrefly must pass on `src/`. Fix types at the source, not with
   `typing.cast`; for an error in a library's stubs (often pandas-stubs), put
   `# pyrefly: ignore[<code>]` on the line above, after a comment saying why.
-- Exceptions live in `stilt/exceptions.py`, each subclassing `StiltError` and
+- Exceptions live in `runtraj/exceptions.py`, each subclassing `RuntrajError` and
   the builtin that describes it; a failed run is a `SimulationError`. Plain
   input checks raise builtins such as `ValueError`.
-- Extras: `geometry`, `visualization`, `download`, `sparse`, `stilt-r`, and
-  `complete`, which the `dev` group installs.
+- Extras: `visualization`, `download`, and `complete`, which the `dev` group installs.
 
 ### Documentation
 
@@ -255,32 +230,23 @@ machine-written, is "Writing documentation" in `CONTRIBUTING.md`. Words:
   message as the line a user would read. The version comes from git tags
   (setuptools-scm). Releases are cut by the maintainer (CONTRIBUTING.md).
 - `uv.lock` is updated by the Upgrade lock workflow (`lock-upgrade.yml`, monthly,
-  opens the `chore/lock-upgrade` pull request), not by Dependabot; `STILT_R_SHA` by
-  `stilt-r-upgrade.yml` (monthly, opens `chore/stilt-r-upgrade`).
-- Open work is in [GitHub issues](https://github.com/jmineau/PYSTILT/issues);
-  read one before working on it. Feature status lives in `docs/development/roadmap.rst`
-  (update its row when a feature lands). Over-engineered code goes on the
+  opens the `chore/lock-upgrade` pull request), not by Dependabot.
+- Open work is in [GitHub issues](https://github.com/jmineau/runtraj/issues);
+  read one before working on it. Over-engineered code goes on the
   issue labeled `simplify`. A pull request fixes one thing and links its issue.
 
 ## Gotchas
 
-The reasons are in `docs/development/architecture.rst` ("Implementation notes").
-
-- **Results are plain data**: `sim.particles` a DataFrame, `sim.footprint` a
-  DataArray, with `.stilt` accessors; no wrapper classes. A missing result
-  raises `FileNotFoundError` (not cached); `None` is only for final states, so
-  test with `has_particles` / `has_footprint`.
+- **Results are plain data**: `sim.particles` is a DataFrame, with the
+  `.runtraj` accessor; no wrapper classes. A missing result raises
+  `FileNotFoundError` (not cached); test with `has_particles`.
 - **`project.simulations` is built once and copied** on each access; a
   hand-edited `config.yaml` needs a new `Project`.
-- **Empty footprints are successes.** `calc_footprint` raises `EmptyFootprint`
-  and the footprint stage writes a no-row file marked `stilt:empty`: complete, with
-  `sim.footprint` `None` and a listing in `project.footprints().attrs["empty"]`.
-  Never synthesize a zero footprint for it.
 - **A failure record is a note** (`<release id>.failure.yaml` in the logs, its
   `stage` `particles` or a stage's name), removed when the result is written
   and never read by completion.
 - **A stage's `config_class` reads back what its `settings` wrote**: a stored
-  folder is found that way (`stilt.stages.check_stage` in the stage's tests).
+  folder is found that way (`runtraj.stages.check_stage` in the stage's tests).
   A stage writes its file under the temporary path `run` is given; its old
   file is removed first, so a failed remake leaves none.
 - **Met that ran out is a failure; a domain exit is not.** HYSPLIT's warnings
@@ -288,14 +254,13 @@ The reasons are in `docs/development/architecture.rst` ("Implementation notes").
   damaged met before it starts (`FAILURE_PHRASES` maps the log afterwards),
   and `check_met_stop` fails a run that stopped early with a particle more
   than 5 grid cells inside the domain (only at `outdt: 0`).
-  `stilt check` runs the file search for every release early; it opens one
+  `runtraj check` runs the file search for every release early; it opens one
   met file per met, to count its time periods (HYSPLIT stops on a file with
   one, and `Met.check` refuses it), and one per grid the catalog lists, for
   the domain; so a damaged file still fails at run time.
 - **Realizations are an axis**: `realizations: N` is one variant with a
   `realization` column and `realization=k/` partitions, run with `seed + k`.
-  HYSPLIT gets `SEED = -(|seed| + 1)` (`setup_seed`, mirrored by the R
-  fidelity fixture), and `seed` needs `krand: 2`.
+  HYSPLIT gets `SEED = -(|seed| + 1)` (`setup_seed`), and `seed` needs `krand: 2`.
 - **HYSPLIT chains same-location starts into a line source**: that is how
   `ColumnRelease` works, and why a `MultiPointRelease` may not repeat a
   horizontal location.
@@ -304,21 +269,14 @@ The reasons are in `docs/development/architecture.rst` ("Implementation notes").
   (`HysplitConfig.maxpar_for`), so it is recorded unset; `check_release` fails
   a multipoint run whose `WARNING` says `exceeding puff limit` (a one-location
   run writes it too, harmlessly).
-- **Two depths**: HYSPLIT's `foot` uses `veght`; the footprint stage computes
-  its own (`footprint_depth`, `pbl_height`) when it needs one and stores it
-  nowhere. On HYSPLIT's `foot`, `resolve` takes `veght` as `footprint_depth`.
-- **Pressure weighting fits `ln p = b + a·z`** (`particle_pwf`); never use raw
-  `pres` (`tests/integration/test_pressure_weighting.py` guards it).
 - **Release heights come from the `age = 0` row** (`add_release_heights`), with
   a fallback for models that write none, as HYSPLIT 5.1.0 does.
-- **Transport-error settings** are easy to misread: read
-  `docs/guides/transport_error.rst` before changing or validating them.
 - **Never name a workdir from the simulation alone**: each run gets a new path
   in the compute root (`_new_workdir`), so projects can share one. Real runs
   are heavy: on a shared HPC system use Slurm or an allocation.
 - **The pool is a `ProcessPoolExecutor`** holding at most `cpus` releases, so
   the ones it holds are in progress. A worker killed outright breaks it:
-  `run_releases` raises `WorkerDied` naming them, and `stilt run` exits with 3.
+  `run_releases` raises `WorkerDied` naming them, and `runtraj run` exits with 3.
   Workers must exit on SIGTERM: the executor's loop catches `SystemExit`, so
   `_pool_run` ends the process itself, or a stop waits for ever.
 - **A pool with `cpus` above 1 first starts one worker that does nothing**
