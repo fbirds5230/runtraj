@@ -94,7 +94,7 @@ Wind-error statistics
 ---------------------
 
 Variograms of analysis-minus-observation winds. Fit them to get the
-wind-error settings of a run (:pystilt:`PYSTILT's page on transport error <guides/transport_error>`).
+wind-error settings of a run.
 
 .. autosummary::
    :toctree: _api

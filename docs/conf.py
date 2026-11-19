@@ -44,7 +44,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
-    "sphinx.ext.extlinks",
     "sphinx.ext.githubpages",
     "matplotlib.sphinxext.plot_directive",  # `.. plot::` runs code, shows the figure
     "IPython.sphinxext.ipython_directive",  # `.. ipython::` runs code in an .rst page
@@ -54,9 +53,6 @@ extensions = [
     "sphinx_design",
     "api_pages",  # _ext/api_pages.py: which members a class page lists; after autodoc
 ]
-
-# :pystilt:`words <guides/page>` links to a page of PYSTILT's docs.
-extlinks = {"pystilt": ("https://jmineau.github.io/PYSTILT/stable/%s.html", "%s")}
 
 templates_path = ["_templates"]
 exclude_patterns = [

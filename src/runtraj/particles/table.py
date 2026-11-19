@@ -49,10 +49,6 @@ PARTICLE_SCHEMA = pa.schema(
 #: Particle columns stored as int32 rather than float64.
 _INT_COLUMNS = ("age", "particle")
 
-#: The column a footprint is made from. It is each particle's sensitivity to
-#: surface fluxes over one output step.
-FOOTPRINT_COLUMNS: tuple[str, ...] = ("foot",)
-
 logger = logging.getLogger(__name__)
 
 
@@ -91,8 +87,7 @@ def check_particles(particles: pd.DataFrame, need: Iterable[str] = ()) -> None:
     particles : pandas.DataFrame
         A particle table, such as a transport model returns.
     need : iterable of str, optional
-        Other columns the next step reads, such as ``("foot",)`` for a
-        footprint.
+        Other columns the next step reads, such as ``("foot",)``.
 
     Raises
     ------
@@ -101,34 +96,12 @@ def check_particles(particles: pd.DataFrame, need: Iterable[str] = ()) -> None:
     """
     wanted = dict.fromkeys([*PARTICLE_SCHEMA.names, *need])
     missing = [name for name in wanted if name not in particles.columns]
-    if missing == ["foot"]:
-        _need_foot(particles)
     if missing:
         raise ValueError(
             f"The particle table has no {', '.join(repr(m) for m in missing)} "
             f"column{'s' if len(missing) > 1 else ''}. Every particle table has "
             f"{', '.join(PARTICLE_SCHEMA.names)} (runtraj.particles.PARTICLE_SCHEMA)."
         )
-
-
-def _need_foot(particles: pd.DataFrame) -> None:
-    """
-    Raise unless *particles* have a ``foot`` column, saying how to get one.
-
-    A particle file holds what the transport model wrote, and a model that
-    writes only positions writes no ``foot``: the footprint stage computes
-    one when it needs it and stores it nowhere.
-
-    Raises
-    ------
-    ValueError
-        If there is no ``foot`` column.
-    """
-    if "foot" in particles.columns:
-        return
-    raise ValueError(
-        "The particle table has no 'foot' column: the transport model wrote none."
-    )
 
 
 def particles_metadata(path: str | Path | UPath) -> ParticleMetadata:
@@ -167,7 +140,7 @@ def particles_metadata(path: str | Path | UPath) -> ParticleMetadata:
 
 def stored_release(meta: Mapping[bytes, bytes], path: str | Path | UPath) -> Release:
     """
-    Return the release a stored particle or footprint file records in its metadata.
+    Return the release a stored result file records in its metadata.
 
     Parameters
     ----------
@@ -180,12 +153,12 @@ def stored_release(meta: Mapping[bytes, bytes], path: str | Path | UPath) -> Rel
     ------
     ValueError
         If the file was written before the receptor was renamed the release,
-        so it records ``stilt:receptor`` and not ``runtraj:release``, or
+        so it records a ``receptor`` and not ``runtraj:release``, or
         records neither.
     """
     if b"runtraj:release" in meta:
         return Release.from_json(meta[b"runtraj:release"])
-    if b"stilt:receptor" in meta:
+    if any(key.endswith(b":receptor") for key in meta):
         raise ValueError(OLD_FILE.format(what=f"The file {path}"))
     raise ValueError(f"{path} does not record its release.")
 

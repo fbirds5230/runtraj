@@ -13,9 +13,6 @@ from typing import Any
 
 from runtraj.exceptions import MissingClass
 
-#: Packages whose name on PyPI is not the name they are imported by.
-_INSTALL_NAMES = {"stilt": "pystilt"}
-
 
 def import_class(path: str) -> Any:
     """
@@ -38,10 +35,9 @@ def import_class(path: str) -> Any:
                 f"({error}). Check the path, and the version of {package} "
                 "installed here."
             ) from None
-        install = _INSTALL_NAMES.get(package, package)
         raise MissingClass(
             f"config.yaml names {path}, but {package} is not installed here. "
-            f"Install {install} and run this again."
+            f"Install the package that provides {package} and run this again."
         ) from None
     except ImportError as error:
         raise MissingClass(

@@ -1,8 +1,8 @@
 """
 Two toy stages, for the tests of the stage interface.
 
-They import nothing from the footprint, as the code that runs stages does
-not. ``count`` reads the particles and ``double`` reads ``count``'s file, so
+They stand for a stage in another package, which the code that runs stages
+never imports by name. ``count`` reads the particles and ``double`` reads ``count``'s file, so
 the two are the shortest chain there is. A config names them by import path:
 ``class: tests.fixtures.stages.CountStage``.
 """

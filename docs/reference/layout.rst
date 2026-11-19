@@ -268,9 +268,7 @@ Which rules a file follows
 A file follows the rules of the runtraj version that wrote it:
 ``runtraj:version`` in a result file, and ``runtraj`` in a
 ``_settings.yaml`` (under ``versions`` in a stage's folder). There is no separate format number. This page
-describes the files of the current version. runtraj's layout began as
-PYSTILT's: a file PYSTILT wrote before the particle runs became runtraj
-records its keys under ``stilt:`` and is not read.
+describes the files of the current version.
 
 Why the output has separate trees
 ---------------------------------

@@ -6,9 +6,8 @@ that it has releases, that the transport model's
 executable is there (HYSPLIT's ``hycs_std``), the met files each release needs,
 whether each release is inside the met's crop, whether ``varsiwant`` holds
 ``zsfc`` where the run needs it, and what each stage of a variant finds
-wrong with its own inputs (:meth:`runtraj.stages.Stage.check`): for the
-footprint, a release outside the grid, or an averaging-kernel table that
-does not match the releases. ``Project.check`` and ``runtraj check`` call it.
+wrong with its own inputs (:meth:`runtraj.stages.Stage.check`).
+``Project.check`` and ``runtraj check`` call it.
 """
 
 from __future__ import annotations
@@ -128,10 +127,9 @@ def _stage_checks(
     """
     Yield what each of the variant's stages finds wrong for the project's releases.
 
-    A stage checks its own inputs (:meth:`runtraj.stages.Stage.check`): the
-    footprint stage lists the releases outside its grid and what each of
-    its transforms finds. Variants with equal settings of a stage share its
-    check; *configs* holds the settings seen so far.
+    A stage checks its own inputs (:meth:`runtraj.stages.Stage.check`).
+    Variants with equal settings of a stage share its check; *configs* holds
+    the settings seen so far.
     """
     for name, config in variant.stages.items():
         if not any(known == config for known in configs):
@@ -155,8 +153,7 @@ def _zsfc_checks(variant: Variant, rows: pd.DataFrame) -> Iterator[_Check]:
 
     The run reads ``zsfc`` to match the release heights of a multipoint
     release's particles. A stage that reads it too says what goes wrong
-    without it, in the ``zsfc_reasons`` of its settings, as the footprint's
-    do for the near-field correction.
+    without it, in the ``zsfc_reasons`` of its settings.
     """
     varsiwant = getattr(variant.transport, "varsiwant", None)
     if varsiwant is None or "zsfc" in varsiwant:

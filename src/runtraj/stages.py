@@ -174,7 +174,7 @@ class Stage(Protocol):
         place), and another stage's file from ``sim.path("<its name>")``
         with that stage's own reader. Write one file at *path* and nothing
         else, whatever there is to say: a result with nothing in it is still
-        a file, as an empty footprint is. On a filesystem *path* is a
+        a file. On a filesystem *path* is a
         temporary name beside the file's own, ending in :attr:`suffix`,
         which the worker moves into place when this returns; a file left
         by a run that raises is removed. So a run cut off part-way leaves

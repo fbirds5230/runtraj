@@ -99,7 +99,7 @@ When a run ends, runtraj reads HYSPLIT's log for the messages it knows.
 When the particles stopped before ``n_hours``, it also checks where: a
 particle more than 5 grid cells inside the met's domain means the met ran
 out (``MET_COVERAGE``), since particles that leave the domain end at its
-edge (:pystilt:`PYSTILT's validation page <development/validation>`). A known failure, a timeout, or a run
+edge. A known failure, a timeout, or a run
 without particle output raises a
 :class:`~runtraj.exceptions.SimulationError` whose ``reason`` is a
 :class:`runtraj.transport.hysplit.FailureReason`. The worker records it, and

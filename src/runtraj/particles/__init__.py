@@ -7,7 +7,6 @@ The functions are in :mod:`~runtraj.particles.table`, and the methods of
 
 from runtraj.particles.accessor import ParticlesAccessor
 from runtraj.particles.table import (
-    FOOTPRINT_COLUMNS,
     PARTICLE_SCHEMA,
     ParticleMetadata,
     add_release_heights,
@@ -19,7 +18,6 @@ from runtraj.particles.table import (
 )
 
 __all__ = [
-    "FOOTPRINT_COLUMNS",
     "PARTICLE_SCHEMA",
     "ParticleMetadata",
     "ParticlesAccessor",

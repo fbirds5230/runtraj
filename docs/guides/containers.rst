@@ -31,8 +31,8 @@ What every container needs
   meteorology, and the output directory, on a volume all the containers
   share. Results are written there, one file per simulation, so the
   containers do not need to talk to each other. The output directory can
-  instead be on an object store (``output: s3://bucket/...``, see
-  :pystilt:`PYSTILT's page on projects and variants <guides/projects>`), with the containers given its credentials.
+  instead be on an object store (``output: s3://bucket/...``), with the
+  containers given its credentials.
   ``runtraj run --output s3://bucket/...`` uses another output directory
   than ``config.yaml`` names, without editing it.
 - A compute root, where each run gets its workdir. Set

@@ -10,10 +10,9 @@ or as a Slurm job array, and keeps the particles where you can find them
 again.
 
 `HYSPLIT <https://www.ready.noaa.gov/HYSPLIT.php>`_ is the transport model
-built in. Another model, and what is made from the particles after a run,
-plug in by the import path of a class.
-`PYSTILT <https://jmineau.github.io/PYSTILT/>`_ is built this way: it adds
-STILT's footprints to runtraj's particles.
+built in. Another model, and what is made from the particles after a run
+(a stage), plug in by the import path of a class. The footprints of
+`PYSTILT <https://jmineau.github.io/PYSTILT/>`_ are made by such a stage.
 
 .. note::
 

@@ -40,10 +40,6 @@ names the line of the second.
 Each page below lists its fields with their defaults and is generated from
 the code.
 
-.. tip::
-  New to runtraj? The :pystilt:`PYSTILT's page on projects and variants <guides/projects>`
-  covers the few settings most projects need. This page lists all of them.
-
 Every key
 ---------
 

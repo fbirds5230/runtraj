@@ -13,8 +13,8 @@ project defines are its releases crossed with the variants in
 the only code that writes results.
 
 A package that adds a stage can subclass :class:`Project` with the reads of
-what its stage makes, as PYSTILT's ``stilt.Project`` does for footprints.
-Nothing on disk names the subclass, so either class opens the directory.
+what its stage makes. Nothing on disk names the subclass, so either class
+opens the directory.
 """
 
 from __future__ import annotations
@@ -321,9 +321,9 @@ class Project:
         Each variant, resolved, by name, in config order.
 
         An ensemble (``realizations: N``) is one variant; its realizations
-        are the ``realization`` column of :attr:`simulations`. A footprint given by a geometry gets its grid
-        here, so the geometry is read on first use (:meth:`runtraj.ProjectConfig.resolve`),
-        and a relative geometry file starts from the project directory.
+        are the ``realization`` column of :attr:`simulations`. A stage reads the files its
+        settings name here, on first use (:meth:`runtraj.ProjectConfig.resolve`),
+        and a relative file starts from the project directory.
         """
         return self.config.resolve(self.directory)
 
@@ -554,9 +554,7 @@ class Project:
         transport model), then the other columns of :attr:`releases`. Rows
         run release by release, with variants in config order. Select rows as in pandas
         and pass the selection to :meth:`status`, :meth:`incomplete`,
-        or :meth:`particles`; :class:`runtraj.Project` adds
-        :meth:`~runtraj.Project.footprints`, :meth:`~runtraj.Project.jacobian`,
-        and :meth:`~runtraj.Project.transport_error`.
+        or :meth:`particles`.
 
         Examples
         --------
@@ -742,7 +740,7 @@ class Project:
         -------
         pandas.DataFrame
             The selection with more columns. ``particles``, and one
-            column named for each stage the project has (``footprint``),
+            column named for each stage the project has,
             are ``True`` when the result exists, ``False`` when it is
             missing, and ``NA`` when the variant does not make it. ``state``
             is ``complete`` when every expected result exists
@@ -754,12 +752,6 @@ class Project:
             and ``message`` say why a failed simulation failed
             (:attr:`runtraj.simulation.Simulation.failure`), and are ``NA`` for the
             others.
-
-        Notes
-        -----
-        An empty footprint (no particle reached the grid) is complete: its
-        ``sim.footprint`` is ``None`` while ``sim.has_footprint`` is true,
-        and :meth:`runtraj.Project.jacobian` lists the empty ones.
 
         Examples
         --------
@@ -953,15 +945,12 @@ class Project:
         - each release is inside the grid of the met files its run starts
           in, when the crop is off (``met_domain``), or inside the met's
           crop box, ``subgrid_bounds``, when it is on (``met_crop``);
-        - each release is inside the footprint grid (``grid``);
-        - each ``averaging_kernel`` table exists (``kernel_table``), has a
-          kernel for every release (``kernel_missing``), and holds none for
-          a release the project lacks (``kernel_unused``);
         - ``varsiwant`` holds ``zsfc`` when a release is above sea level
-          (``altitude_ref="msl"``) and a run reads it: the near-field
-          correction of a footprint, the release heights of a multipoint release whose
-          points are less than 1 km apart and at different altitudes, or the
-          ``pressure_weighting`` transform (``zsfc``).
+          (``altitude_ref="msl"``) and a run reads it: the release heights
+          of a multipoint release whose points are less than 1 km apart and
+          at different altitudes, or what a stage says it reads (``zsfc``);
+        - what each stage of the project finds in its own settings and the
+          releases (:meth:`runtraj.stages.Stage.check`).
 
         A met with ``download`` has no files to look for: they are fetched
         when a run needs them, so only its crop is checked.

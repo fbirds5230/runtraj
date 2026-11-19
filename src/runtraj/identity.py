@@ -12,9 +12,7 @@ share a folder, a ``realization=k`` partition each, so the number is not
 in the hash). A
 stage's settings are the record the stage itself writes
 (:meth:`runtraj.stages.Stage.settings`), hashed with the particles' hash and
-the hash of each stage it reads (:func:`stage_hash`); the footprint's are
-its footprint config, with the grid it is computed on, and the hash of the
-geometry the grid was derived for.
+the hash of each stage it reads (:func:`stage_hash`).
 
 The hash depends on what the settings mean rather than how they were
 written. A stored record is read back through the current config classes,
@@ -113,8 +111,7 @@ def read_run_settings(stored: Mapping[str, Any]) -> dict[str, Any]:
 
     A setting this version does not have is kept as written, so a folder
     written before it was removed still loads, and hashes apart from every
-    current variant: a run made with ``footprint_depth: 0.3``, when that was
-    a run setting, is not taken for one made with HYSPLIT's ``veght: 0.5``. A record of a transport model
+    current variant. A record of a transport model
     that is not installed here is returned as written, with a warning. A folder of one realization,
     as realizations were written before they were partitions, keeps its
     number, so it hashes as it did and no current variant finds it.
@@ -166,8 +163,8 @@ def file_stamp(digest: str, realization: int | None = None) -> dict[bytes, bytes
     Its folder's settings hash (*digest*: ``variant.particles_hash``, or
     ``variant.stage_hashes[name]`` for a stage's file), the runtraj
     version, and, for an ensemble, its realization number. A particle file
-    carries it, and so does a footprint; a stage of your own may write it
-    too, so that its files say what made them.
+    carries it; a stage may write it too, so that its files say what made
+    them.
     """
     stamp = {
         b"runtraj:hash": digest.encode(),

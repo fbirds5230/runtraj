@@ -356,7 +356,7 @@ def check_met_stop(particles: pd.DataFrame, n_hours: int, grid: "Grid") -> None:
 
     On a domain only a few dozen cells across, a met stop late in a run,
     when nearly every particle has already left, can pass as a domain exit.
-    The footprint lost in such a run is small.
+    Little of such a run is lost.
 
     The particle table must hold a row for every time step (``outdt: 0``).
     With fewer rows, the last row of a particle that left can be far

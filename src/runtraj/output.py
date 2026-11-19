@@ -3,8 +3,8 @@ The output directory, where particles and the files of each stage are kept.
 
 A project's results live in an output directory that several projects can
 share. It has one tree per kind of result, ``particles`` and one named for
-each stage (the footprint's is ``footprint``), and inside each a folder per
-set of settings, in hive form so every tree reads as one dataset::
+each stage, and inside each a folder per set of settings, in hive form so
+every tree reads as one dataset. Here the stage is PYSTILT's footprint::
 
     <output>/
       particles/
@@ -14,14 +14,14 @@ set of settings, in hive form so every tree reads as one dataset::
         settings=hrrr-err-7be104/        an ensemble: one folder, a partition per realization
           realization=0/date=2024-07-01/<release>.parquet
       footprint/
-        settings=hrrr-93278c/            variant name + short hash of transport + footprint settings
+        settings=hrrr-93278c/            variant name + short hash of transport + stage settings
           _settings.yaml                 names the particles folder it was made from
           date=2024-07-01/<release>.parquet
-        settings=hrrr-hexes-1b2c3d/      same particles, other footprint settings
+        settings=hrrr-hexes-1b2c3d/      same particles, other stage settings
       logs/
         settings=hrrr-a3f9c2/date=2024-07-01/<release>.log
         settings=hrrr-a3f9c2/date=2024-07-01/<release>.failure.yaml   a failed run
-        settings=hrrr-93278c/date=2024-07-01/<release>.failure.yaml   a failed footprint
+        settings=hrrr-93278c/date=2024-07-01/<release>.failure.yaml   a failed stage
       scratch/
         settings=hrrr-a3f9c2/date=2024-07-01/<release>/               a kept workdir
 
@@ -47,7 +47,7 @@ and the variant::
     out = Output("output")
     out.write_particles(variant, release, frame, met_files)
     out.path("particles", variant, release.id)  # one release's file
-    out.present("footprint", variant, release_ids)  # which have a footprint
+    out.present("footprint", variant, release_ids)  # which have the stage's file
     out.make_path("footprint", variant, release.id)  # where a stage writes
 """
 
@@ -321,7 +321,7 @@ def completed(particles: frozenset[str], *stages: frozenset[str]) -> frozenset[s
     output file exists, and so does the file of every stage its variant
     uses. *stages* is one set of releases for each stage the variant uses,
     none for a variant that makes particles only. A stage's file is a file
-    whatever it holds, so an empty footprint is complete.
+    whatever it holds.
     """
     return particles.intersection(*stages)
 
@@ -648,18 +648,9 @@ class Output:
         """
         Return the name of *variant*'s folder of *kind*, or ``None`` when it does not exist.
 
-        Raises
-        ------
-        ValueError
-            For ``footprints``, what the footprints' kind was called before
-            it took the name of their stage. Any other string is taken for
-            a stage the variant does not use.
+        A string that is not ``"particles"`` is taken for a stage, and one
+        the variant does not use has no folder.
         """
-        if kind == "footprints" and kind not in variant.stages:
-            raise ValueError(
-                "The footprints' kind is 'footprint', the name of their stage, "
-                "not 'footprints'."
-            )
         digest = self._lookup_hash(kind, variant)
         if digest is None:
             return None
@@ -835,7 +826,7 @@ class Output:
         ----------
         kind : str
             Which result: ``"particles"``, or a stage whose files are
-            Parquet, as the footprint's are.
+            Parquet.
         variant : Variant
             Whose result.
         release_id : str
@@ -930,7 +921,7 @@ class Output:
         ----------
         kind : str
             Which results: ``"particles"``, or a stage whose files are
-            Parquet, as the footprint's are.
+            Parquet.
         variant : Variant
             Whose results.
         release_ids : iterable of str, optional

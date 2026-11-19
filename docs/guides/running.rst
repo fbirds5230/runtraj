@@ -130,8 +130,7 @@ Commands
    List what would stop the project's runs, before any run starts, such as
    met files a release's run needs that are not there, a release outside
    the met's crop, or what a stage finds missing. Nothing is run or downloaded. It exits with 0 when it finds
-   nothing and 1 when it lists anything (:pystilt:`PYSTILT's page on checking a run <guides/checking>` lists every
-   check).
+   nothing and 1 when it lists anything.
 
 ``runtraj fetch <project>``
    Get the met files the unfinished simulations need, then exit. A met with
@@ -186,8 +185,8 @@ When a simulation fails
 
 A failed simulation doesn't stop the others. The worker records why it
 failed and goes on, and the next ``runtraj run`` tries it again.
-``runtraj status`` counts the failures by reason, and :pystilt:`PYSTILT's page on checking a run <guides/checking>` says
-what each reason means and where to look.
+``runtraj status`` counts the failures by reason, and ``sim.failure`` and
+``sim.log`` say what went wrong in one.
 
 .. toctree::
    :maxdepth: 1

@@ -115,7 +115,7 @@ class HysplitConfig(TransportConfig):
     each. The wind-error group (``siguverr``, ``tluverr``, ``zcoruverr``,
     ``horcoruverr``) perturbs the particles' winds, and the mixed-layer group
     (``sigzierr``, ``tlzierr``, ``horcorzierr``) perturbs each particle's
-    footprint by a random mixed-layer height error. Each group is set in full
+    ``foot`` by a random mixed-layer height error. Each group is set in full
     or not at all.
 
     ``SETUP.CFG`` entries that cannot change the particles, such as ``delt``
@@ -140,8 +140,8 @@ class HysplitConfig(TransportConfig):
         2500,
         ge=1,
         description=(
-            "Number of particles released per simulation. More particles give a "
-            "less noisy footprint and take longer to run."
+            "Number of particles released per simulation. More particles sample "
+            "the turbulence better and take longer to run."
         ),
     )
     directory: Path | None = Field(
@@ -197,8 +197,7 @@ class HysplitConfig(TransportConfig):
             "column of the particles under the same name, except ``indx``, "
             "``time``, ``long``, and ``lati``. ``zcfx`` is the vertical "
             "displacement by convective flux along the trajectory, in m. "
-            "The default is HYSPLIT's own list of 20. A footprint needs "
-            "``foot`` and ``mlht`` among them, and pressure weighting ``pres``."
+            "The default is HYSPLIT's own list of 20."
         ),
     )
     capemin: float | None = Field(
@@ -350,10 +349,7 @@ class HysplitConfig(TransportConfig):
             "Height below which HYSPLIT counts a particle's time toward its "
             "``foot``: the depth surface fluxes are mixed through. A value of 1 "
             "or less is a fraction of the mixed-layer height; a larger value is "
-            "meters above ground. A footprint from HYSPLIT's ``foot`` reads it "
-            "for the near-field correction too. The footprint stage's "
-            "``footprint_depth`` is the same depth for a ``foot`` runtraj "
-            "computes (``pbl_height``)."
+            "meters above ground."
         ),
     )
     vscale: float = Field(

@@ -16,7 +16,7 @@ work underneath.
 - :func:`~runtraj.execution.worker.run_particles` runs the transport model for one
   :class:`~runtraj.Simulation` and writes its particles and log.
 - :func:`~runtraj.execution.worker.run_stages` runs the stages of the variants
-  that share those particles, the footprint among them: each stage file
+  that share those particles: each stage file
   that is missing, in the order the stages read one another, and each
   again when what it reads was made again.
   :func:`~runtraj.execution.worker.run_stage` runs one, which writes its own

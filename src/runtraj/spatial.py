@@ -2,10 +2,9 @@
 Rasters and coordinate systems: bounding boxes, grids, and CRS helpers.
 
 :class:`Bounds` is a longitude/latitude box, such as the crop box of a met.
-:class:`Grid` is a rectilinear raster: the grid a stage sums particles onto
-(a footprint's, in PYSTILT), and the grid a field is put on to be compared
-with it. This module does not need shapely, so any part of runtraj can use
-it.
+:class:`Grid` is a rectilinear raster, such as the grid a stage sums
+particles onto. This module does not need shapely, so any part of runtraj
+can use it.
 """
 
 from __future__ import annotations
@@ -84,8 +83,8 @@ def cf_axis_attrs(dim: str) -> dict[str, str]:
     """
     Return the CF attributes for one coordinate axis: ``lon``, ``lat``, ``x`` or ``y``.
 
-    Grids and footprints both use this, so their axes carry the same
-    attributes.
+    A grid, and an array made on it, both use this, so their axes carry the
+    same attributes.
     """
     return {
         "lon": {
@@ -152,8 +151,8 @@ def _east_edge(xmin: float, xmax: float) -> float:
     return xmax + 360.0 if xmax < xmin else xmax
 
 
-#: The most cells a grid may have. A footprint holds a number per cell and
-#: time layer, so a grid past this needs more than 8 GB a layer, which is
+#: The most cells a grid may have. An array on a grid holds a number per
+#: cell, so a grid past this needs more than 8 GB, which is
 #: most often a resolution in the wrong units (degrees on a grid in meters).
 _MAX_GRID_CELLS = 10**9
 
@@ -288,13 +287,13 @@ class Bounds(BaseModel):
 
 class Grid(Bounds):
     """
-    Footprint grid: longitude/latitude bounds, cell size, and CRS.
+    A rectilinear grid: longitude/latitude bounds, cell size, and CRS.
 
     The bounds are always longitude/latitude. With a projected ``crs``,
     the grid covers the bounds' extent in that projection and ``xres`` and
     ``yres`` are in its units. Longitudes count modulo 360, so a grid
     across 180 degrees is written ``xmin=170, xmax=190`` or ``xmin=170,
-    xmax=-170``. A footprint on either has longitudes 170 to 190. A grid
+    xmax=-170``. Either has longitudes 170 to 190. A grid
     spans at most 360 degrees of longitude.
 
     Notes
@@ -310,7 +309,7 @@ class Grid(Bounds):
 
     A grid is refused when pyproj cannot read its ``crs``, when no whole
     cell fits in it, or when it has more than a billion cells (8 GB for
-    each time layer of a footprint). The last is most often a resolution in
+    one array of numbers). The last is most often a resolution in
     degrees on a projected grid, whose ``xres`` and ``yres`` are in meters
     for ``EPSG:32612``.
     """
@@ -331,7 +330,7 @@ class Grid(Bounds):
         "+proj=longlat",
         validation_alias=AliasChoices("crs", "projection"),
         description=(
-            "Coordinate reference system of the footprint grid, such as a PROJ "
+            "Coordinate reference system of the grid, such as a PROJ "
             "string or ``EPSG:32612``. Particles and bounds are projected to it "
             "before gridding. Also read under STILT-R's name, ``projection``."
         ),
@@ -407,7 +406,7 @@ class Grid(Bounds):
             )
             raise ValueError(
                 f"This grid has {cells:,} cells, more than the {_MAX_GRID_CELLS:,} "
-                f"a footprint can be made on. Its xres and yres are in {units}."
+                f"a grid may have. Its xres and yres are in {units}."
             )
         return self
 
@@ -418,7 +417,7 @@ class Grid(Bounds):
 
     @property
     def dims(self) -> tuple[str, str]:
-        """The names of a footprint's horizontal dimensions on this grid, ``("lat", "lon")`` or ``("y", "x")``."""
+        """The names of the horizontal dimensions of an array on this grid, ``("lat", "lon")`` or ``("y", "x")``."""
         return ("lat", "lon") if self.is_longlat else ("y", "x")
 
     @property
@@ -426,7 +425,7 @@ class Grid(Bounds):
         """
         Cell-center coordinates ``(x, y)`` in projection units, ascending.
 
-        These are the footprint's coordinates on this grid. On a
+        These are the coordinates of an array on this grid. On a
         longitude/latitude grid they run east from ``xmin``, past 180 if the
         grid does: a grid from 170 to -170 has longitudes 170 to 190. They are rounded
         to 10 decimals (``40.35`` rather than ``40.349999999999994``) so they
@@ -456,7 +455,7 @@ class Grid(Bounds):
         Index of every cell, in the same order as ``cells``.
 
         The levels are named ``lon`` and ``lat`` for a longitude/latitude grid
-        and ``x`` and ``y`` for a projected one, as in the footprint.
+        and ``x`` and ``y`` for a projected one.
         """
         import pandas as pd
 
@@ -469,11 +468,9 @@ class Grid(Bounds):
         Return the grid as a CF-1.8 dataset of cell centers.
 
         The dataset has ``lon`` and ``lat`` coordinates (``x`` and ``y`` when
-        projected) matching the footprint, and a ``crs`` grid-mapping
-        variable. Use it to regrid a flux field onto the footprint grid, or
-        with other tools that read CF grids. To sum a footprint onto this
-        grid, pass the grid itself to ``foot.runtraj.aggregate``. Projected
-        grids need ``pyproj``.
+        projected), and a ``crs`` grid-mapping variable. Use it to regrid a
+        field onto this grid, or with other tools that read CF grids.
+        Projected grids need ``pyproj``.
         """
         import xarray as xr
 

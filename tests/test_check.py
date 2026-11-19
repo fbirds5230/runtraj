@@ -345,11 +345,6 @@ def test_variants_that_share_a_met_and_a_run_length_share_their_rows(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-# ---------------------------------------------------------------------------
-# The footprint grid
-# ---------------------------------------------------------------------------
-
-
 def test_a_release_on_the_edge_of_the_grid_is_inside_it(tmp_path):
     edge = _release(12, longitude=GRID.xmin, latitude=GRID.ymax)
 

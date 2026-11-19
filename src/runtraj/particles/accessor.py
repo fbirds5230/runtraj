@@ -67,7 +67,7 @@ class ParticlesAccessor:
     runtraj's methods on a particle table, as ``particles.runtraj``.
 
     A package can subclass it and register the subclass under its own
-    name, as PYSTILT does for ``particles.stilt``.
+    name.
 
     Examples
     --------
@@ -105,11 +105,10 @@ class ParticlesAccessor:
 
     def grid_exits(self, grid: Grid) -> pd.DataFrame:
         """
-        Return where each particle first left a footprint grid.
+        Return where each particle first left a grid.
 
         For a backward run these are the points where the air entered the
-        footprint's domain, which the export of a footprint to a regional
-        model needs, and where to sample a background at the domain's edge.
+        grid's domain, where a field at the domain's edge is sampled.
         Unlike :meth:`endpoints`, which gives where a particle ended, this
         gives where it first crossed the edge of the grid, even if it came
         back later or stayed in the meteorology domain long after.
@@ -135,7 +134,7 @@ class ParticlesAccessor:
         Parameters
         ----------
         grid : runtraj.Grid
-            The footprint grid, such as ``project.variants["hrrr"].stages["footprint"].grid``.
+            The grid.
 
         Returns
         -------

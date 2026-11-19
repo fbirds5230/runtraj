@@ -88,8 +88,7 @@ class MetConfig(BaseModel):
         None,
         description=(
             "Longitude/latitude box to crop the meteorology to. Particles that "
-            "leave it stop, so make it wide enough for the whole run, not only "
-            "the footprint grid."
+            "leave it stop, so make it wide enough for the whole run."
         ),
     )
     subgrid_levels: int | None = Field(
@@ -815,8 +814,7 @@ _REMOVED = {
     ),
     "subgrid_buffer": (
         "the crop is subgrid_bounds. Widen the bounds by the buffer instead (it "
-        "was in degrees; STILT-R's met_subgrid_buffer is a fraction of the "
-        "footprint grid's size)."
+        "was in degrees)."
     ),
     "n_min": (
         "a run needs every met file its hours fall in, and fails naming the "

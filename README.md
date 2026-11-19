@@ -13,9 +13,8 @@ on your machine or as a Slurm job array, and keeps the particles where you can f
 [HYSPLIT](https://www.ready.noaa.gov/HYSPLIT.php) is the model built in; another model, and
 what is made from the particles afterwards, plug in by the import path of a class.
 
-runtraj is not a model. It is the part of [PYSTILT](https://github.com/jmineau/PYSTILT) that
-makes particle runs, in a package of its own for people who run HYSPLIT without STILT, or
-another model. PYSTILT adds STILT's footprints on top of it.
+runtraj is not a model: it runs one, for every release and every set of settings, and
+keeps track of what is done.
 
 ## Status
 

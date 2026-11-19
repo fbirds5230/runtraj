@@ -35,7 +35,7 @@ the release type that matches how your instrument samples the air.
      - You give it
    * - :class:`PointRelease`
      - An instrument sampling at one point, such as a tower inlet, a flask,
-       or an aircraft or vehicle measurement (:pystilt:`PYSTILT's page on releases along a track <guides/tracks>`)
+       or an aircraft or vehicle measurement
      - ``longitude``, ``latitude``, ``altitude``
    * - :class:`ColumnRelease`
      - An instrument measuring the vertical column above one spot, such as a
@@ -43,7 +43,7 @@ the release type that matches how your instrument samples the air.
      - ``longitude``, ``latitude``, ``bottom``, ``top``
    * - :class:`MultiPointRelease`
      - A slanted line of sight, such as a solar-tracking spectrometer or an
-       off-nadir satellite sounding (see :pystilt:`PYSTILT's page on slant columns <guides/slant_columns>`), or any set of
+       off-nadir satellite sounding, or any set of
        release points at one time
      - ``longitudes``, ``latitudes``, ``altitudes`` (arrays)
 
@@ -55,8 +55,7 @@ PointRelease
 -------------
 
 This is the most common type. Use it for a fixed surface site or an airborne
-sample at one height. For an analyzer that measures as it moves,
-:pystilt:`PYSTILT's page on releases along a track <guides/tracks>` makes these releases from its track.
+sample at one height.
 
 .. ipython:: python
 
@@ -121,8 +120,7 @@ other satellite views with a full line-of-sight geometry are examples.
 
 The three arrays must have the same length. The release's ID is built from
 a hash of its points, so listing the same points in another order gives the
-same ID. To build the points from viewing angles instead of by hand, see
-:pystilt:`PYSTILT's page on slant columns <guides/slant_columns>`.
+same ID.
 
 .. warning::
 
@@ -180,7 +178,7 @@ different locations make a :class:`MultiPointRelease`.
 Any other column is kept on the release in ``attrs``. A ``scene`` or
 ``site`` label you add to the file is also a column of
 ``project.releases`` and ``project.simulations``, so you can select
-results by it with pandas (see :pystilt:`PYSTILT's page on footprints and particles <guides/outputs>`):
+results by it with pandas:
 
 .. code-block:: python
 
@@ -208,7 +206,7 @@ use :func:`read_releases`, or pass the path to the project:
    project.add_releases("my_releases.csv")
 
 Releases you add to a project later are appended to its ``releases.csv``
-using the file's own columns (see :pystilt:`PYSTILT's page on projects and variants <guides/projects>`). If a new release's
+using the file's own columns. If a new release's
 heights are above sea level and the file has no ``altitude_ref`` column, the
 column is added.
 
@@ -230,8 +228,7 @@ HYSPLIT stops releasing when it reaches ``maxpar`` and fills the locations
 in order, so a ``maxpar`` set too low would leave the last locations with
 fewer particles or none. Leave ``maxpar`` unset: runtraj then gives HYSPLIT
 room for every location (``n * (numpar // n + 1)``). A run whose ``maxpar``
-cuts a multipoint release short fails as ``PARTICLE_LIMIT``
-(:pystilt:`PYSTILT's page on checking a run <guides/checking>`).
+cuts a multipoint release short fails as ``PARTICLE_LIMIT``.
 
 
 Advanced: release heights for multipoint and slant releases
@@ -283,7 +280,7 @@ All three classes have these members:
 
 ``release.id``
    A string of the form ``YYYYMMDDHHMM_{location}``. It names the release's
-   result files (see :pystilt:`PYSTILT's page on projects and variants <guides/projects>`), so two different releases may
+   result files (:doc:`../reference/layout`), so two different releases may
    not share one. For a point or column release it spells out the time,
    position, and heights, with ``msl`` at the end for heights above sea
    level. ``release.location_id`` is the location part.

@@ -34,7 +34,7 @@ runs the project on this machine with it.
 Then check the project and submit it from the environment runtraj is
 installed in. ``runtraj check`` finds a met folder that is not where you said,
 or met files a release needs that are not there, before the job array
-starts and its simulations fail one by one (:pystilt:`PYSTILT's page on checking a run <guides/checking>`):
+starts and its simulations fail one by one:
 
 .. code-block:: bash
 
@@ -257,6 +257,6 @@ compute node with the task's number in place of ``$SLURM_ARRAY_TASK_ID``.
 If a task fails, look in its ``<task>.log`` for problems with the task
 itself. Its first line says when and on which node it started, and the
 job and task ids; a requeued task adds another such line. Look in each
-simulation's log in the output directory for transport model problems
-(:pystilt:`PYSTILT's page on checking a run <guides/checking>`). The folders are safe to delete once a job has left the
+simulation's log in the output directory for transport model problems.
+The folders are safe to delete once a job has left the
 queue.

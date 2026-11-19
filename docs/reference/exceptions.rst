@@ -73,4 +73,3 @@ install, and the ``runtraj`` commands exit with 2.
 
    runtraj.exceptions.HYSPLITNotFoundError
    runtraj.exceptions.MissingClass
-

@@ -2,8 +2,7 @@
 A simulation, one release run under one variant, and where its results are.
 
 The workers and the stages use it. A package that adds a stage can subclass
-:class:`Simulation` with the reads of what its stage makes, as PYSTILT's
-``stilt.Simulation`` does for the footprint.
+:class:`Simulation` with the reads of what its stage makes.
 """
 
 from __future__ import annotations
@@ -49,7 +48,7 @@ class Simulation:
         Where and when particles are released.
     variant : Variant
         The variant, resolved: its configs, and the hashes that find its
-        particles and footprint folders.
+        particles folder and its stages' folders.
     output : Output
         The output directory.
     directory : Path, optional
@@ -138,7 +137,7 @@ class Simulation:
         Return whether this simulation's file of *kind* exists.
 
         *kind* is ``"particles"`` or the name of a stage. A stage's file is
-        a finished result whatever it holds: an empty footprint is one.
+        a finished result whatever it holds.
         """
         path = self.path(kind)
         return path is not None and path.exists()
@@ -178,7 +177,7 @@ class Simulation:
         Whether every expected result exists.
 
         That is the particles, and the file of every stage the variant
-        uses, such as the footprint. It is :func:`runtraj.output.completed`,
+        uses. It is :func:`runtraj.output.completed`,
         the one definition of done, for one release, from a file check for
         each.
         """

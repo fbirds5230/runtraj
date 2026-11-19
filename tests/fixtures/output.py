@@ -60,7 +60,7 @@ def write_one(out: Output, variant: Variant = VARIANT, release=None) -> Path:
 
 
 def as_written_before_the_rename(path: Path) -> Path:
-    """Rewrite a particle file as PYSTILT wrote it when a release was a receptor."""
+    """Rewrite a particle file as it was written when a release was a receptor."""
     import pyarrow.parquet as pq
 
     table = pq.read_table(path)

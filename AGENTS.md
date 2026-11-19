@@ -27,15 +27,15 @@ particles after a run (a **stage**), plug in by the import path of a class.
 It is alpha software: **there are no backward-compatibility guarantees
 before v1.0**, so prefer the clean design over a compatibility shim.
 
-- **Where it came from.** runtraj is the particle-run core of
-  [PYSTILT](https://github.com/jmineau/PYSTILT), which is built on it and
-  adds STILT's footprints as a stage. The history before the first commit
-  here that says runtraj is PYSTILT's, and an issue number in it, or
-  `PYSTILT#123` in a comment, is one of PYSTILT's. runtraj never imports
-  `stilt` and knows nothing of STILT-R.
+- **A stage in another package is only ever an example here.** runtraj
+  imports no stage and names none in its code; where the docs need one to
+  show, it is PYSTILT's footprint (`stilt.footprint.FootprintStage`). An
+  issue number written `PYSTILT#123`, and any in the commits before the
+  first that says runtraj, is one of jmineau/PYSTILT's, where that code was
+  written.
 - **A change that breaks a plug-in** (the stage or transport model
-  protocols, or the output layout) raises the minor version: PYSTILT requires
-  a range of runtraj up to the next one.
+  protocols, or the output layout) raises the minor version: a package
+  built on runtraj requires a range of it up to the next one.
 - **Release** is the time and place a run starts from: `releases.csv`, the
   `release` column, `--releases`, `group`, and the classes `PointRelease`,
   `ColumnRelease`, `MultiPointRelease`. A release placed at a measurement and
@@ -73,7 +73,7 @@ take the kind (`particles` or a stage's name). `runtraj.__all__` (and each
 subpackage's) is the public surface.
 
 **A package that adds a stage may subclass `Project` and `Simulation`** with
-the reads of what its stage makes, as PYSTILT does. Workers and stages get
+the reads of what its stage makes. Workers and stages get
 runtraj's classes; nothing on disk names a subclass.
 
 ```

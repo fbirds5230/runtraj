@@ -2,21 +2,20 @@
 The project config: what ``config.yaml`` holds, and the variants it declares.
 
 ``config.yaml`` is blocks: ``mets`` names the meteorology, ``models`` the
-transport models, ``stages`` what is made from each simulation's results
-(the footprint), and ``variants`` the settings every release runs under.
+transport models, ``stages`` what is made from each simulation's results,
+and ``variants`` the settings every release runs under.
 A model's or a stage's block holds its settings, the defaults of every
 variant that uses it, and no setting sits at the top level. Each part has
 its own config class, next to the code that uses it: the transport model's
 and its met config (such as :class:`~runtraj.transport.hysplit.HysplitConfig`
-and :class:`~runtraj.transport.hysplit.MetConfig`), a stage's (PYSTILT's
-footprint has ``stilt.footprint.FootprintConfig``), and
+and :class:`~runtraj.transport.hysplit.MetConfig`), a stage's, and
 :class:`~runtraj.execution.ExecutionConfig`. A stage is named by the import
 path of its class (:mod:`runtraj.stages`), so this module imports none.
 :class:`ProjectConfig` reads the file and checks it without reading any
 other file, so a ``config.yaml`` loads offline.
 :meth:`ProjectConfig.resolve` turns each declared variant into a
 :class:`Variant`, what its simulations run with; that has each stage read
-the files its settings name (a footprint geometry) and check that it fits
+the files its settings name and check that it fits
 the variant's model, and asks the transport model for its build. Which
 weather each met is, read from its files, is read when a variant's hash is
 first needed.
@@ -117,7 +116,7 @@ class Variant:
 
     Variants with equal :attr:`particles_hash` share one run of the
     transport model per release (and realization) and differ only in what
-    their stages make of it, such as their footprints. The hashes are
+    their stages make of it. The hashes are
     computed once. Change a variant with :func:`dataclasses.replace`, which
     computes them again.
 
@@ -141,8 +140,7 @@ class Variant:
         Number of realizations of an ensemble, or ``None`` for a single run.
     stages : dict
         The settings of each stage the variant uses, by the stage's name, as
-        the stage resolved them: for PYSTILT's footprint,
-        ``stages["footprint"]`` is its config with its grid. Empty for a
+        the stage resolved them. Empty for a
         variant that makes particles only.
     stage_classes : dict of str to str
         The import path of each stage's class, by the stage's name.
@@ -355,7 +353,7 @@ class ProjectConfig(BaseModel):
 
     The file is blocks. ``mets`` names the meteorology, ``models`` the
     transport models, ``stages`` what is made from each simulation's
-    results (the footprint), and ``variants`` what runs. A model's or a
+    results, and ``variants`` what runs. A model's or a
     stage's block holds its settings, checked by its own config class: the
     defaults of every variant that uses it. Each variant names a met and a
     model, when there are several, and overrides some of the defaults; only
@@ -402,9 +400,9 @@ class ProjectConfig(BaseModel):
             "What is made from each simulation's results after the transport "
             "model runs, by name, each a block that gives the stage's import "
             "path as ``class`` and then its settings. A block is named for "
-            "its stage: the block of PYSTILT's footprint is ``footprint``, "
-            "with ``class: stilt.footprint.FootprintStage`` and the "
-            "footprint settings. A stage runs for "
+            "its stage: PYSTILT's footprint, for example, is the block "
+            "``footprint`` with ``class: stilt.footprint.FootprintStage``. "
+            "A stage runs for "
             "every variant, unless the variant sets it to null. Left out, "
             "the project makes particles only."
         ),
@@ -418,10 +416,9 @@ class ProjectConfig(BaseModel):
             "``models`` block, needed with several), ``realizations`` (run N "
             "times, realization k with ``seed + k``, as one ensemble), and "
             "``stages`` (a stage's settings to change, by the stage's name, "
-            "or null for a variant without it: ``stages: {footprint: null}`` "
-            "makes particles only). Every other key is a setting of its "
-            "model. Variants with the same transport settings share one "
-            "transport model run and differ in the footprint made from it. At "
+            "or null for a variant without it). Every other key is a setting "
+            "of its model. Variants with the same transport settings share one "
+            "transport model run and differ in what their stages make from it. At "
             "least one is required: ``hrrr: {}`` runs the defaults."
         ),
     )
@@ -590,7 +587,7 @@ class ProjectConfig(BaseModel):
                 f"{where} uses 'from:', which is no longer needed: a "
                 "variant with the same transport settings as another shares its "
                 "particles. Give the variant the transport overrides of "
-                f"{spec['from']!r} (if any) and its own footprint settings."
+                f"{spec['from']!r} (if any) and its own stage settings."
             )
         met = _met_name(group, spec, self.mets)
         block = _model_name(group, spec, self._models)
@@ -630,8 +627,8 @@ class ProjectConfig(BaseModel):
 
         Each is the stage's block with the variant's ``stages`` overrides:
         the variant's keys replace the block's, unless the stage's config
-        class merges them itself (its ``override``, as the footprint's does
-        for a grid). A stage the variant sets to null is left out.
+        class merges them itself (its ``override``). A stage the variant
+        sets to null is left out.
 
         Raises
         ------
@@ -896,8 +893,8 @@ def _stage_blocks(
     Return each ``stages`` block's stage and checked settings, by the stage's name, in the order the stages run.
 
     A block names its stage by the import path of the stage's class
-    (``class``), which is imported here, and is itself named for the stage:
-    the footprint's block is ``footprint``. *models* are the ``models``
+    (``class``), which is imported here, and is itself named for the
+    stage. *models* are the ``models``
     blocks, to say where a model's setting belongs.
 
     Raises
@@ -976,8 +973,7 @@ def _overridden(block: _StageBlock, own: dict[str, Any], where: str) -> dict[str
     Return a variant's settings of a stage: the block's, changed by the variant's *own*.
 
     The variant's keys replace the block's. A stage whose config class has
-    an ``override(block, own)`` classmethod merges them itself: the
-    footprint's changes a grid field by field.
+    an ``override(block, own)`` classmethod merges them itself.
 
     Raises
     ------

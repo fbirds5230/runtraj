@@ -98,8 +98,8 @@ def test_a_class_whose_package_is_not_installed_names_the_package():
         get_stage("nopkg_for_this_test.stages.Wind")
     assert str(error.value) == (
         "config.yaml names nopkg_for_this_test.stages.Wind, but "
-        "nopkg_for_this_test is not installed here. Install "
-        "nopkg_for_this_test and run this again."
+        "nopkg_for_this_test is not installed here. Install the package that "
+        "provides nopkg_for_this_test and run this again."
     )
     assert isinstance(error.value, ImportError)
     assert isinstance(error.value, RuntrajError)
@@ -303,7 +303,7 @@ def test_a_stage_setting_written_elsewhere_is_sent_to_its_block(tmp_path):
 
 
 class _LenientConfig(CountConfig):
-    """A count's settings that ignore a key they do not know, as the footprint's do."""
+    """A count's settings that ignore a key they do not know."""
 
     model_config = {"extra": "ignore"}
 

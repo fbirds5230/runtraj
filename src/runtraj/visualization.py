@@ -71,7 +71,7 @@ def _central_longitude(extent: tuple[float, float, float, float] | None) -> floa
     """
     Return the longitude a new map is centered on.
 
-    This is 0 unless the extent runs past 180 or -180, as a footprint grid
+    This is 0 unless the extent runs past 180 or -180, as a grid
     from 170 to 190 does. Then it is the extent's middle, so the map shows
     that box and not the whole globe.
     """
@@ -222,7 +222,7 @@ class ParticlesPlotAccessor:
         _color_labels = {
             "age": "Minutes since release",
             "zagl": "Altitude AGL (m)",
-            "foot": "Footprint influence",
+            "foot": "Surface influence (foot)",
         }
         if color_by not in _color_labels:
             raise ValueError(
@@ -288,7 +288,7 @@ class ReleasePlotAccessor:
             Axes to plot on. By default a new map is made, with cartopy when
             it is installed.
         domain : Bounds, optional
-            Outline a domain, such as a footprint :class:`~runtraj.Grid`, with
+            Outline a domain, such as a :class:`~runtraj.Grid`, with
             a dashed line, and fit the map to it.
         met_bounds : Bounds, optional
             Outline the meteorology domain with a dotted blue line.

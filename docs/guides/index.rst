@@ -24,11 +24,9 @@ runtraj, start with :doc:`../getting_started/quickstart`.
   and terrain tables
 
 The pages on a project's settings and variants, checking a run, choosing
-settings, and reading and plotting the particles have not been written for
-runtraj yet. Until they are, :pystilt:`PYSTILT's user guide <guides/index>`
-covers them for a project that also makes footprints,
-:doc:`../reference/configuration` lists every ``config.yaml`` option, and
-the :doc:`../reference/index` has every method.
+settings, and reading and plotting the particles have not been written
+yet. Until they are, :doc:`../reference/configuration` lists every
+``config.yaml`` option, and the :doc:`../reference/index` has every method.
 
 .. toctree::
    :hidden:

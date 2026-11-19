@@ -244,10 +244,10 @@ def check(project: str | None = _PROJECT_ARG) -> None:
     For each variant, checks that the met's directory exists and holds ARL
     files, that every met file each release's run needs is there (naming
     the hours), that the first of them holds more than one time period,
-    which HYSPLIT needs, that each release is inside the met's crop box and the
-    footprint grid, that an averaging-kernel table matches the
-    releases, and that ``varsiwant`` holds ``zsfc`` when releases above sea
-    level need it. Nothing is run or downloaded. It looks for files, not inside
+    which HYSPLIT needs, that each release is inside the met's crop box,
+    that ``varsiwant`` holds ``zsfc`` when releases above sea level need it,
+    and what each stage finds in its own settings.
+    Nothing is run or downloaded. It looks for files, not inside
     them: a run that passes can still fail as MET_COVERAGE, when a met file
     is damaged or cut short, or the release is outside the files' domain.
     Exits with 0 when it finds nothing, 1 when it lists anything, and 2 when
@@ -534,8 +534,8 @@ def run(
     """
     Run every unfinished simulation in a project, and wait until they are done.
 
-    Runs the transport model for each release and variant, then the footprint when the
-    variant has one. Simulations whose outputs exist are skipped unless
+    Runs the transport model for each release and variant, then the variant's
+    stages. Simulations whose outputs exist are skipped unless
     --no-skip is given. With the Slurm backend this submits a job array and
     waits for it; use runtraj submit to return as soon as it is submitted.
 

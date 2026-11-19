@@ -40,7 +40,7 @@ the tables of a ``bdyfiles/`` folder beside the folder it is in.
 
 Two builds can give different particles from the same settings, so a run
 records the SHA-256 of the ``hycs_std`` it ran, and runs of different
-builds go to different settings folders (:pystilt:`PYSTILT's page on projects and variants <guides/projects>`). A rebuilt or
+builds go to different settings folders (:doc:`../reference/layout`). A rebuilt or
 updated ``hycs_std`` starts new folders even when it behaves the same. The
 folder ``hycs_std`` is in is not recorded: moving a build keeps its results.
 

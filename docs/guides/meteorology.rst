@@ -56,7 +56,7 @@ and a coarse grid smooths all three away.
        (`ERA5`_ below).
 
 If you run the same releases with two products, give each its own met and
-its own variant, and compare the results (:pystilt:`PYSTILT's page on projects and variants <guides/projects>`).
+its own variant, and compare the results.
 
 Use files you already have
 --------------------------
@@ -98,7 +98,7 @@ none:
 
 A run with hours missing stops before HYSPLIT starts, and says which hours
 they are. ``runtraj check`` makes the same search for every release in a
-project, so run it before you submit a batch (:pystilt:`PYSTILT's page on checking a run <guides/checking>`).
+project, so run it before you submit a batch.
 
 Each file holds gridded fields for every hour it covers. Here is the
 mixed-layer height at the release's hour. It is about 600 m over the
@@ -232,7 +232,7 @@ memory, which matters most for global products and on cluster nodes.
 Make the box larger than the region you study. A particle that leaves the
 box stops, just as it would at the edge of the weather model's grid, so a
 box that is too tight quietly cuts a run short. Plot
-the particles of a few runs (:pystilt:`PYSTILT's page on footprints and particles <guides/outputs>`) to see how far they go.
+the particles of a few runs (``sim.particles.runtraj.plot.map()``) to see how far they go.
 
 With your own files, runtraj crops each file the first time a run needs
 it, writes the copy to ``subgrid_dir`` and reuses it after that.
@@ -293,6 +293,5 @@ When the meteorology is the problem
 A run whose files are missing, damaged or cut short fails before HYSPLIT
 starts, as ``MET_COVERAGE``, and its message names the file or the hours.
 A run whose particles all leave the met's domain is a success, with the
-particles of the hours they were inside it. :pystilt:`PYSTILT's page on checking a run <guides/checking>` explains each
-failure and what to do about it, and :doc:`../reference/meteorology` gives
-the exact rules for which files a run reads.
+particles of the hours they were inside it. :doc:`../reference/meteorology`
+gives the exact rules for which files a run reads.

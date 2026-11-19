@@ -7,8 +7,7 @@ particles, so it groups them: the transport model runs once per group where the
 particles are missing (:func:`run_particles`), then each variant's stages
 make their files from the particles in memory (:func:`run_stages`). A stage
 is the class its ``stages`` block of ``config.yaml`` names
-(:class:`runtraj.stages.Stage`), the footprint among them, so this module
-imports none.
+(:class:`runtraj.stages.Stage`), so this module imports none.
 A failure is recorded with the simulation and the worker goes on, except
 a connection or I/O error that a retry may get past, which is not recorded as a
 failure: the simulation stays unfinished and the next run does it again.
@@ -494,7 +493,7 @@ def run_release(
     once for the group when the
     particles are missing (or always, without ``skip_existing``), and each
     variant's stages make their files from those particles in memory
-    (:func:`run_stages`), the footprint among them. A stage's file is made
+    (:func:`run_stages`). A stage's file is made
     again whenever what it is made from was, so it always matches it.
     A failure is recorded with the simulation (:attr:`runtraj.Simulation.failure`)
     and does not stop the others; a failed transport model run fails every variant

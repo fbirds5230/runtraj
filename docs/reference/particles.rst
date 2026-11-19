@@ -70,7 +70,7 @@ Some of them:
      - ppm per (µmol m⁻² s⁻¹)
      - The particle's sensitivity to surface fluxes accumulated over the
        output step, which HYSPLIT computes in its STILT mode with its
-       ``veght`` (Lin et al., 2003). A footprint is made from it.
+       ``veght`` (Lin et al., 2003).
    * - ``mlht``
      - m
      - Mixed-layer height above ground.
