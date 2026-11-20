@@ -7,6 +7,35 @@ All notable changes to runtraj are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0a3] - 2026-11-20
+
+### Added
+
+- Submit a project to Kubernetes as an indexed Job.
+- Run a project every hour on Kubernetes with `runtraj schedule` and `runtraj tick`.
+- `runtraj status` lists a Kubernetes project's Jobs and their tasks.
+- Choose how `calc_pbl_height` finds the mixed layer, to match the transport model's run.
+- `check_model`, the promises a transport model keeps.
+- Export `ControlFile`, `read_namelist`, `stored_release` and `release_metadata`, and name the command group `ExitCodeGroup`.
+
+### Changed
+
+- **Breaking:** the transport model refuses releases and says where its particles started.
+- Read HYSPLIT's particle file with pandas' C reader, three times faster than `numpy.loadtxt`.
+- arlmet is capped below 0.2, so a release that drops a name cannot break a fresh install.
+
+### Fixed
+
+- Keep a failed run's workdir without the transport model's particle file.
+- Read a table of several simulations one trajectory at a time.
+- Raise `MeteorologyError`, also a `FileNotFoundError`, when a met's files cannot be found.
+- Give each local pool worker its share of the CPUs as `OMP_NUM_THREADS`.
+- Refuse inputs that gave a plausible wrong value, and name the argument, file and row when an input is refused. Times with a zone are read in UTC.
+- Let `PressureWeighting`'s `surface_pressure` close the bottom slab and set the weights.
+- Leave a run of a model that writes no log with no log, not runtraj's started line, and document a missing log.
+- Name the download option, the HYSPLIT source and the pystilt extra in three error messages.
+- Refuse a negative seed, which gave the same run as its positive.
+
 ## [0.1.0a2] - 2026-11-19
 
 ### Added
