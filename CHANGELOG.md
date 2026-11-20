@@ -7,6 +7,34 @@ All notable changes to runtraj are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0a2] - 2026-11-19
+
+### Added
+
+- Met sampling from any format arlmet converts, such as GFS and ERA5 GRIB:
+  `sample_met` and `calc_pbl_height` take a Dataset in
+  `arlmet.open_dataset`'s layout in place of ARL files. A transport model
+  whose met files are not ARL files opens them for this with an optional
+  `open_met` method, which `runtraj.models.open_met` calls.
+
+### Changed
+
+- runtraj requires arlmet 0.1.0b12 or later.
+
+### Fixed
+
+- Met sampling takes pressure from the met's vertical levels where the met
+  has no `PRES` field, and refuses terrain-following and WRF met without it.
+- Particle times that are not whole microseconds are sampled at their own
+  time.
+- Air density is the dry-air density where the met has no `SPHU`.
+- `calc_pbl_height` gives no mixed-layer height where the met lacks the
+  surface fluxes (`SHTF`, `USTR`); between a met time without them and one
+  with them, it takes the height that exists.
+- Met files that do not all hold the same variables are sampled for the
+  ones they share, and one error names every variable that is missing. No
+  met files at all is a clear error.
+
 ## [0.1.0a1] - 2026-11-19
 
 The first release. runtraj runs particle dispersion models at scale: you give
