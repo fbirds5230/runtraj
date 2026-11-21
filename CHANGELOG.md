@@ -7,6 +7,22 @@ All notable changes to runtraj are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0a4] - 2026-11-21
+
+### Added
+
+- Run HYSPLIT's concentration mode with `mode: concentration` and lists of pollutants and grids. Each release stores its concentration grids in one NetCDF file, read with `project.concentration` and `sim.concentration`.
+- Set HYSPLIT's `ichem` in a concentration run: a grid for each release point or emission cycle, conversions between pollutants, mixing ratios, and a mixed-layer level.
+- Run HYSPLIT's trajectory program with `mode: trajectory`. Each release stores a trajectory table, read with `project.trajectories` and `sim.trajectories`.
+- `sim.result` reads what a simulation made, whatever its type, and `run_trajectories` returns what the settings make.
+- A stage names the type of result it reads, particles unless it says.
+- With `fetch` set in the `kubernetes` block, each pod gets the met files in turn before its share runs (`runtraj run --fetch`).
+- A guide to setting up Kubernetes: the image, kind on your computer, Google Cloud and other clusters.
+
+### Changed
+
+- **Breaking:** a transport model's result has a type, particles or concentration. `ModelRun.particles` is now `ModelRun.result`, a model's `particle_files` is now `result_files(config)`, `Variant.particles_hash` is now `Variant.result_hash`, and the worker's `run_particles` is now `run_result`. Settings folders of particles keep their names.
+
 ## [0.1.0a3] - 2026-11-20
 
 ### Added
