@@ -650,7 +650,7 @@ def test_one_missing_file_fails_the_run_naming_its_hours(tmp_path):
     _hrrr_files(tmp_path, ["20230101_00-05_hrrr", "20230101_12-17_hrrr"])
     met = _make_met(tmp_path)
     with pytest.raises(
-        MeteorologyError, match="for 2023-01-01 05:00 to 2023-01-01 12:00"
+        MeteorologyError, match="for 2023-01-01 06:00 to 2023-01-01 11:00"
     ) as info:
         _run_files(met, dt.datetime(2023, 1, 1, 13), -12)
     assert info.value.reason == "MET_COVERAGE"
@@ -663,9 +663,9 @@ def test_missing_is_what_files_for_fails_for(tmp_path):
     window = run_window(dt.datetime(2023, 1, 1, 13), -12)
 
     assert met.missing(window) == [
-        (pd.Timestamp("2023-01-01 05:00"), pd.Timestamp("2023-01-01 12:00"))
+        (pd.Timestamp("2023-01-01 06:00"), pd.Timestamp("2023-01-01 11:00"))
     ]
-    with pytest.raises(MeteorologyError, match="2023-01-01 05:00 to 2023-01-01 12:00"):
+    with pytest.raises(MeteorologyError, match="2023-01-01 06:00 to 2023-01-01 11:00"):
         met.files_for(window)
     _hrrr_files(tmp_path, ["20230101_06-11_hrrr"])
     assert _make_met(tmp_path).missing(window) == []
@@ -679,13 +679,15 @@ def test_nothing_is_missing_for_a_download(tmp_path):
 
 def test_checking_releases_lists_the_folder_once(tmp_path, monkeypatch):
     """Releases an hour apart, some missing their files, cost one listing of the folder."""
-    from runtraj.models.hysplit import catalog as catalog_module
+    import arlmet
 
     _hrrr_files(tmp_path, ["20230101_06-11_hrrr"])
     walks = []
-    real_walk = catalog_module.walk
+    real_catalog = arlmet.catalog
     monkeypatch.setattr(
-        catalog_module, "walk", lambda top: walks.append(top) or real_walk(top)
+        arlmet,
+        "catalog",
+        lambda top, **kwargs: walks.append(top) or real_catalog(top, **kwargs),
     )
     releases = pd.DataFrame(
         {
@@ -828,6 +830,26 @@ def test_a_folder_read_once_is_not_read_again(tmp_path, monkeypatch):
     ]
 
 
+def test_a_new_met_does_not_list_the_folder_again(tmp_path, monkeypatch):
+    """Each run makes a new Met, and the folder is listed once in a process."""
+    import arlmet
+
+    _hrrr_files(tmp_path, ["20230101_00-05_hrrr"])
+    window = run_window(dt.datetime(2023, 1, 1, 3), -2)
+    walks = []
+    real_catalog = arlmet.catalog
+    monkeypatch.setattr(
+        arlmet,
+        "catalog",
+        lambda top, **kwargs: walks.append(top) or real_catalog(top, **kwargs),
+    )
+
+    for _ in range(3):
+        _make_met(tmp_path).files_for(window)
+
+    assert len(walks) == 1
+
+
 def _linked_archive(root: Path) -> Path:
     """
     An archive laid out as the shared HRRR one: files in year/month folders, a link to each at the top.
@@ -876,33 +898,6 @@ def test_a_link_to_a_missing_file_or_a_folder_is_no_met_file(tmp_path):
 
     with pytest.raises(MeteorologyError, match="No met file"):
         met.files_for(("2024-06-01 12:00", "2024-06-01 13:00"))
-
-
-def test_the_walk_lists_links_without_following_them(tmp_path):
-    """Links are listed as names, and a link to a folder is not walked into."""
-    from runtraj.models.hysplit.catalog import walk
-
-    _linked_archive(tmp_path)
-
-    walked = {Path(folder): sorted(names) for folder, names in walk(tmp_path)}
-
-    assert walked == {
-        tmp_path: [
-            "20240601_00-05_hrrr",
-            "20240601_06-11_hrrr",
-            "20240601_12-17_hrrr",
-            "20240601_18-folder",
-        ],
-        tmp_path / "2024": [],
-        tmp_path / "2024" / "06": ["20240601_00-05_hrrr", "20240601_06-11_hrrr"],
-    }
-
-
-def test_the_walk_skips_a_folder_it_cannot_read(tmp_path):
-    """As os.walk does: a missing directory lists nothing, and raises nothing."""
-    from runtraj.models.hysplit.catalog import walk
-
-    assert list(walk(tmp_path / "missing")) == []
 
 
 def _six_hourly_hrrr(tmp_path):
@@ -1159,17 +1154,16 @@ def test_two_products_at_different_times_share_a_folder(tmp_path):
     assert [p.name for p in files] == ["old", "new"]
 
 
-def test_a_short_copy_of_one_product_does_not_hide_the_whole_file(tmp_path):
-    """The file that holds the most is used when one holds only part of what another does."""
-    (whole,) = _hrrr_files(tmp_path, ["20210115_00-05_hrrr"])
+def test_a_short_copy_beside_the_whole_file_fails_the_run_naming_both(tmp_path):
+    """Nothing says the two hold the same data, so neither is picked."""
+    _hrrr_files(tmp_path, ["20210115_00-05_hrrr"])
     write_arl_file(
         tmp_path / "short",
         times=pd.date_range("2021-01-15 00:00", periods=2, freq="h"),
     )
 
-    assert _make_met(tmp_path).files_for(("2021-01-15 00:00", "2021-01-15 01:00")) == [
-        whole
-    ]
+    with pytest.raises(MeteorologyError, match="is in two files"):
+        _make_met(tmp_path).files_for(("2021-01-15 00:00", "2021-01-15 01:00"))
 
 
 def test_a_3_hourly_met_beside_an_hourly_file_that_sorts_first(tmp_path):
@@ -1203,12 +1197,10 @@ def test_a_forward_run_missing_the_file_after_its_end_names_that_hour(tmp_path):
     met = _make_met(tmp_path)
     window = run_window(dt.datetime(2021, 1, 14, 20, 31), 3)
 
-    with pytest.raises(
-        MeteorologyError, match="for 2021-01-14 23:00 to 2021-01-14 23:31"
-    ):
+    with pytest.raises(MeteorologyError, match=r"for 2021-01-15 00:00\. "):
         met.files_for(window)
     assert met.missing(window) == [
-        (pd.Timestamp("2021-01-14 23:00"), pd.Timestamp("2021-01-14 23:31"))
+        (pd.Timestamp("2021-01-15 00:00"), pd.Timestamp("2021-01-15 00:00"))
     ]
 
 
