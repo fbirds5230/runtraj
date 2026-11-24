@@ -10,6 +10,7 @@ one in every test module.
 from __future__ import annotations
 
 import datetime as dt
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -238,6 +239,11 @@ STAND_IN_TABLES = {
 }
 
 
+def program_path(folder: Path, name: str = "hycs_std") -> Path:
+    """Return the path :func:`make_hysplit_dir` gives a stand-in program in *folder*: *name*, or ``<name>.cmd`` on Windows."""
+    return folder / f"{name}.cmd" if sys.platform == "win32" else folder / name
+
+
 def make_hysplit_dir(
     directory: Path,
     version: str | None = "hysplit.v5.1.0",
@@ -257,6 +263,20 @@ def make_hysplit_dir(
     for name in ("hycs_std", "hyts_std"):
         exe = directory / "exec" / name
         exe.parent.mkdir(parents=True, exist_ok=True)
+        if sys.platform == "win32":
+            # A .cmd is the program Windows can run without a compiler: it
+            # prints the version and stops, and keeps *body* as comments, so
+            # stand-ins with different bodies are different files. A test that
+            # needs the body to run is skipped there.
+            said_cmd = (
+                "" if version is None else f"echo  HYSPLIT version: {version}\r\n"
+            )
+            comments = "".join(f"rem {line}\r\n" for line in body.splitlines())
+            exe.with_suffix(".cmd").write_text(
+                f"@echo off\r\nrem {name}\r\n{said_cmd}{comments}exit /b 2\r\n",
+                newline="",
+            )
+            continue
         exe.write_text(f"#!/bin/sh\n# {name}\n{said}{body}")
         exe.chmod(0o755 if executable else 0o644)
     if tables:

@@ -40,7 +40,7 @@ def _pages() -> list[Path]:
 
 def _blocks(path: Path, language: str) -> list[str]:
     """Return the code blocks in one language of a reStructuredText or Markdown file."""
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     if path.suffix == ".md":
         return re.findall(rf"```{language}\n(.*?)```", text, flags=re.S)
     blocks = []
@@ -169,7 +169,10 @@ def test_interactive_examples_in_the_docs_compile(block):
     compile(_statements(block), "<docs>", "exec")
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+# On a Windows runner the first bash on PATH is WSL's, which has no distribution.
+@pytest.mark.skipif(
+    shutil.which("bash") is None or sys.platform == "win32", reason="needs bash"
+)
 @pytest.mark.parametrize("block", [b for _, b in BASH], ids=[n for n, _ in BASH])
 def test_shell_examples_in_the_docs_are_valid_bash(block):
     checked = subprocess.run(

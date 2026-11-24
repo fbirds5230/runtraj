@@ -216,6 +216,19 @@ log, met files or `age = 0` row; particles numbered 10, 20, ...):
 - Prefer code that is easy to read and debug (users are scientists who read
   the source when a result looks wrong) over micro-optimizations, unless a
   profile shows the cost; HYSPLIT and I/O dominate real runs.
+- **Windows is tested** (`windows-latest`, unit and recorded-run tests). Text
+  files are read and written with `encoding="utf-8"` (Windows' default is
+  cp1252), HYSPLIT's input files with `newline="\n"` and `as_posix()` paths, so
+  they are the same bytes everywhere. A HYSPLIT program is `hycs_std.exe` there
+  (`driver.program_file`); stand-ins are `.cmd` files (`program_path` in
+  `tests/fixtures/factories.py`). A test that needs a shell script, a POSIX
+  signal or process group, or Slurm gets `@not_on_windows("why")`
+  (`tests/fixtures/platform.py`). The input lock and `put` on a local folder
+  are for Kubernetes and Slurm, which run Linux; from Windows a Kubernetes
+  submit needs `inputs` on a bucket (`_pods_open` refuses it otherwise).
+  Windows refuses a rename onto a file another process has open, so a file
+  that workers write once and then read (`_settings.yaml`) is written with
+  `atomic_path(path, replace=False)`, which keeps the file already there.
 - Python 3.11+ (use `typing.Self`, `enum.StrEnum`, `datetime.UTC`, not
   backports). Ruff rules are in `pyproject.toml`; **NumPy-style docstrings**
   with the summary on the line after the opening quotes (`D213`). Keep a
@@ -326,7 +339,14 @@ machine-written, is "Writing documentation" in `CONTRIBUTING.md`. Words:
   the ones it holds are in progress. A worker killed outright breaks it:
   `run_releases` raises `WorkerDied` naming them, and `runtraj run` exits with 3.
   Workers must exit on SIGTERM: the executor's loop catches `SystemExit`, so
-  `_pool_run` ends the process itself, or a stop waits for ever.
+  `_pool_run` ends the process itself, or a stop waits for ever. Windows has
+  no SIGTERM: `terminate` ends a worker alone and its HYSPLIT runs on, so
+  `_end_worker` ends the tree with `taskkill /T`. A worker killed outright
+  runs no `finally`, so HYSPLIT ends with it by other means
+  (`driver._ended_if_this_process_dies`): a watchdog `sh` on POSIX, started
+  before HYSPLIT and sent its group, which kills the group when the worker's
+  pipe to it closes (`kill -9 -PGID`, the form dash reads too), and a job
+  object that ends on close on Windows.
 - **A pool with `cpus` above 1 first starts one worker that does nothing**
   (`_check_workers_can_start`), unless the start method is `fork`. Under `spawn`
   and `forkserver` a worker runs the user's script again, and a script without

@@ -11,11 +11,14 @@ input files of a run, or to read a particle file from elsewhere.
 """
 
 import datetime as dt
+import logging
 import os
 import shutil
 import signal
 import subprocess
-from collections.abc import Sequence
+import sys
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -44,6 +47,8 @@ from runtraj.models.hysplit.namelist import NameList
 
 if TYPE_CHECKING:
     from arlmet import Grid
+
+logger = logging.getLogger(__name__)
 
 CONTROL_FILE = "CONTROL"
 SETUP_FILE = "SETUP.CFG"
@@ -102,6 +107,28 @@ def program_name(config: HysplitConfig) -> str:
     return HYTS_STD_FILE if config.mode == "trajectory" else HYCS_STD_FILE
 
 
+def program_file(folder: Path, name: str) -> Path:
+    """
+    Return the file in *folder* that is the HYSPLIT program *name*: ``folder/name``, or on Windows the first of ``PATHEXT`` that exists.
+
+    HYSPLIT's Windows download names its programs ``hycs_std.exe``. Without
+    one in *folder*, the path of ``folder/name`` is returned, so a message
+    can name it.
+
+    Examples
+    --------
+    >>> program_file(Path("exec"), "hycs_std").stem
+    'hycs_std'
+    """
+    path = folder / name
+    if sys.platform == "win32":
+        extensions = os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";")
+        for extension in extensions:
+            if extension and (found := folder / f"{name}{extension.lower()}").is_file():
+                return found
+    return path
+
+
 def find_program(name: str, directory: str | Path | None = None) -> Path:
     """
     Return the HYSPLIT program called *name* that a run uses: ``exec/<name>`` under *directory*, else the first on ``PATH``.
@@ -124,10 +151,10 @@ def find_program(name: str, directory: str | Path | None = None) -> Path:
         without *directory*, if no such program is on ``PATH``.
     """
     if directory is not None:
-        exe = Path(directory) / EXEC_DIR / name
+        exe = program_file(Path(directory) / EXEC_DIR, name)
         if not exe.is_file():
             raise HYSPLITNotFoundError(
-                f"No {EXEC_DIR}/{name} in {directory}. Set directory "
+                f"No {EXEC_DIR}/{exe.name} in {directory}. Set directory "
                 "(under models: hysplit: in config.yaml) to the HYSPLIT folder "
                 f"as unpacked, the one that holds {EXEC_DIR}/ and {BDYFILES_DIR}/."
             )
@@ -547,7 +574,9 @@ def winderrtf(params: HysplitConfig) -> int:
 def _write_values(path: Path, values: list[float] | None) -> None:
     """Write one value per line to ``path``; nothing is written when ``values`` is ``None``."""
     if values is not None:
-        path.write_text("\n".join(str(v) for v in values) + "\n", encoding="utf-8")
+        path.write_text(
+            "\n".join(str(v) for v in values) + "\n", encoding="utf-8", newline="\n"
+        )
 
 
 def write_inputs(
@@ -596,14 +625,17 @@ def write_inputs(
     # taken from exec/, which holds dozens of other programs.
     program = program_name(config)
     trajectory = config.mode == "trajectory"
-    links = {program: find_program(program, config.directory)}
+    found = find_program(program, config.directory)
+    # On Windows the link keeps the program's extension, which finds it again.
+    linked = program + found.suffix.lower() if sys.platform == "win32" else program
+    links = {linked: found}
     for name, table in data_tables(config.directory, program).items():
         if isinstance(table, bytes):
             (workdir / name).write_bytes(table)
         else:
             links[name] = table
     for name, target in links.items():
-        (workdir / name).symlink_to(target.resolve())
+        _link(workdir / name, target.resolve())
 
     ControlFile(
         release_time=release_time,
@@ -636,13 +668,38 @@ def write_inputs(
     factors = ziscale_factors(config)
     if factors is not None:
         (workdir / ZICONTROL_FILE).write_text(
-            "\n".join([str(len(factors)), *(str(v) for v in factors)]) + "\n"
+            "\n".join([str(len(factors)), *(str(v) for v in factors)]) + "\n",
+            encoding="utf-8",
+            newline="\n",
         )
     rates = chemrate(config)
     if rates is not None:
-        (workdir / CHEMRATE_FILE).write_text("\n".join(rates) + "\n")
+        (workdir / CHEMRATE_FILE).write_text(
+            "\n".join(rates) + "\n", newline="\n", encoding="utf-8"
+        )
     _write_values(workdir / WINDERR_FILE, winderr(config))
     _write_values(workdir / ZIERR_FILE, zierr(config))
+
+
+def _link(path: Path, target: Path) -> None:
+    """
+    Make *path* a symbolic link to *target*; on Windows, a hard link or a copy where it may not.
+
+    Windows lets only an administrator, or a user in developer mode, create a
+    symbolic link. A hard link needs neither and takes no space, but only to
+    a file on the same drive (NTFS); a copy works anywhere. Each does what
+    the link does.
+    """
+    try:
+        path.symlink_to(target)
+        return
+    except OSError:
+        if sys.platform != "win32":
+            raise
+    try:
+        os.link(target, path)
+    except OSError:
+        shutil.copy2(target, path)
 
 
 def run_hycs_std(
@@ -673,14 +730,16 @@ def run_hycs_std(
     log_path = workdir / LOG_FILE
     with (
         log_path.open("w", encoding="utf-8") as handle,
+        _ended_if_this_process_dies() as watch,
         subprocess.Popen(
-            [str(workdir / program)],
+            [str(program_file(workdir, program))],
             cwd=workdir,
             stdout=handle,
             stderr=subprocess.STDOUT,
-            start_new_session=True,
+            **_own_group(),
         ) as proc,
     ):
+        watch(proc)
         try:
             proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired as e:
@@ -691,7 +750,8 @@ def run_hycs_std(
             ) from e
         except BaseException:
             # Ctrl-C, or a worker told to stop: HYSPLIT runs in a session of
-            # its own, so no signal reached it and it would run on, unseen.
+            # its own (a process group on Windows), so no signal reached it and
+            # it would run on, unseen.
             _terminate(proc)
             raise
     messages = log_path.read_text(encoding="utf-8", errors="replace")
@@ -732,10 +792,175 @@ def _exit_status_error(workdir: Path, status: int) -> SimulationError:
     return SimulationError(message, reason=FailureReason.EXIT_STATUS)
 
 
-def _terminate(proc: subprocess.Popen[Any]) -> None:
-    """Stop a HYSPLIT process group with SIGTERM, then SIGKILL if it does not exit."""
+def _own_group() -> dict[str, Any]:
+    """Return the ``Popen`` arguments that start HYSPLIT in a session of its own (a new process group on Windows)."""
+    if sys.platform == "win32":
+        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
+
+
+#: The watchdog of a HYSPLIT run on POSIX: it reads the process group to
+#: kill, then waits for its standard input to close, which happens when the
+#: process that started it ends however it ends, and kills the group. ``kill
+#: -9 -PGID`` is the form both bash and dash read as a group.
+_WATCHDOG = 'read group && read line; kill -9 -"$group" 2>/dev/null'
+
+
+@contextmanager
+def _ended_if_this_process_dies() -> Iterator[Callable[[subprocess.Popen[Any]], None]]:
+    """
+    Yield a call that makes HYSPLIT end if this process dies while the block runs, even when it is killed outright.
+
+    A worker the out-of-memory killer or ``kill -9`` ends runs no
+    ``finally`` block, and HYSPLIT, in a session of its own, would run on.
+    Call the yielded function with HYSPLIT's process as soon as it starts.
+    On POSIX a watchdog shell, started before HYSPLIT and in a session of
+    its own, is sent HYSPLIT's process group, then reads a pipe from this
+    process, which the system closes when this process dies; it then kills
+    the group. On Windows HYSPLIT is put in a job object that ends it when
+    the job's one handle, held here, closes. A process killed between
+    HYSPLIT's start and the call still leaves it running. Where neither can
+    be set up, HYSPLIT runs without it, with a warning.
+    """
+    if sys.platform == "win32":
+        jobs: list[int] = []
+
+        def join_job(proc: subprocess.Popen[Any]) -> None:
+            job = _job_that_ends(proc.pid)
+            if job is not None:
+                jobs.append(job)
+
+        try:
+            yield join_job
+        finally:
+            for job in jobs:
+                _close_handle(job)  # HYSPLIT has ended, or is ended now
+        return
     try:
-        os.killpg(proc.pid, signal.SIGTERM)
+        watchdog = subprocess.Popen(
+            ["/bin/sh", "-c", _WATCHDOG],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,  # so Ctrl-C to this process leaves it
+        )
+    except OSError as e:
+        logger.warning("HYSPLIT runs without a watchdog: %s", e)
+        yield lambda proc: None
+        return
+    pipe = watchdog.stdin
+    assert pipe is not None
+
+    def tell_watchdog(proc: subprocess.Popen[Any]) -> None:
+        try:
+            pipe.write(f"{proc.pid}\n".encode())
+            pipe.flush()
+        except OSError as e:  # the watchdog has ended
+            logger.warning("HYSPLIT runs without a watchdog: %s", e)
+
+    try:
+        yield tell_watchdog
+    finally:
+        watchdog.kill()  # before its pipe closes, so it kills nothing
+        watchdog.wait()
+        pipe.close()
+
+
+if sys.platform == "win32":  # Windows' job objects, through ctypes
+    #: The limit that ends a job's processes when its last handle closes (``JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE``).
+    _KILL_ON_JOB_CLOSE = 0x2000
+    #: The class of ``SetInformationJobObject`` the limit is in (``JobObjectExtendedLimitInformation``).
+    _EXTENDED_LIMITS = 9
+    #: The access to a process that putting it in a job needs (``PROCESS_SET_QUOTA | PROCESS_TERMINATE``).
+    _JOIN_ACCESS = 0x0101
+
+    def _job_that_ends(pid: int) -> int | None:
+        """
+        Put the Windows process *pid* in a new job object that ends it when the job closes; return the job's handle.
+
+        The job closes when its last handle does, and its one handle is held by
+        this process, so the system ends *pid* when this process ends, however
+        it ends. Returns ``None`` where the job cannot be made.
+        """
+        import ctypes
+        from ctypes import wintypes
+
+        class BasicLimits(ctypes.Structure):
+            _fields_ = [
+                ("PerProcessUserTimeLimit", ctypes.c_int64),
+                ("PerJobUserTimeLimit", ctypes.c_int64),
+                ("LimitFlags", wintypes.DWORD),
+                ("MinimumWorkingSetSize", ctypes.c_size_t),
+                ("MaximumWorkingSetSize", ctypes.c_size_t),
+                ("ActiveProcessLimit", wintypes.DWORD),
+                ("Affinity", ctypes.c_size_t),
+                ("PriorityClass", wintypes.DWORD),
+                ("SchedulingClass", wintypes.DWORD),
+            ]
+
+        class ExtendedLimits(ctypes.Structure):
+            _fields_ = [
+                ("BasicLimitInformation", BasicLimits),
+                ("IoInfo", ctypes.c_uint64 * 6),
+                ("ProcessMemoryLimit", ctypes.c_size_t),
+                ("JobMemoryLimit", ctypes.c_size_t),
+                ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                ("PeakJobMemoryUsed", ctypes.c_size_t),
+            ]
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.SetInformationJobObject.argtypes = [
+            wintypes.HANDLE,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            wintypes.DWORD,
+        ]
+        kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        job = kernel32.CreateJobObjectW(None, None)
+        if not job:
+            logger.warning(
+                "HYSPLIT runs outside a job object: %s",
+                ctypes.WinError(ctypes.get_last_error()),
+            )
+            return None
+        limits = ExtendedLimits()
+        limits.BasicLimitInformation.LimitFlags = _KILL_ON_JOB_CLOSE
+        process = kernel32.OpenProcess(_JOIN_ACCESS, False, pid)
+        joined = (
+            process
+            and kernel32.SetInformationJobObject(
+                job, _EXTENDED_LIMITS, ctypes.byref(limits), ctypes.sizeof(limits)
+            )
+            and kernel32.AssignProcessToJobObject(job, process)
+        )
+        error = ctypes.get_last_error()
+        if process:
+            kernel32.CloseHandle(process)
+        if not joined:
+            kernel32.CloseHandle(job)
+            logger.warning(
+                "HYSPLIT runs outside a job object: %s", ctypes.WinError(error)
+            )
+            return None
+        return job
+
+    def _close_handle(handle: int) -> None:
+        """Close a Windows handle."""
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle(handle)
+
+
+def _terminate(proc: subprocess.Popen[Any]) -> None:
+    """Stop a HYSPLIT process (its group, on POSIX) with SIGTERM, then SIGKILL if it does not exit."""
+    try:
+        _signal_group(proc, hard=False)
     except ProcessLookupError:
         return
     try:
@@ -744,10 +969,29 @@ def _terminate(proc: subprocess.Popen[Any]) -> None:
     except subprocess.TimeoutExpired:
         pass
     try:
-        os.killpg(proc.pid, signal.SIGKILL)
+        _signal_group(proc, hard=True)
     except ProcessLookupError:
         return
     try:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         proc.wait()
+
+
+def _signal_group(proc: subprocess.Popen[Any], *, hard: bool) -> None:
+    """
+    Send SIGKILL (*hard*) or SIGTERM to *proc*'s process group.
+
+    Windows has no process group to signal: ``terminate`` and ``kill`` end
+    the process alone, which is all HYSPLIT is (it starts no other).
+    """
+    if sys.platform == "win32":
+        try:
+            if hard:
+                proc.kill()
+            else:
+                proc.terminate()
+        except OSError as e:  # the process has already ended
+            raise ProcessLookupError from e
+        return
+    os.killpg(proc.pid, signal.SIGKILL if hard else signal.SIGTERM)

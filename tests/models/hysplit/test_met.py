@@ -2,6 +2,7 @@
 
 import datetime as dt
 import logging
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -258,7 +259,7 @@ def _fake_extract(text: str = "cropped"):
     """Stand-in for arlmet.extract_subset that writes *text* to the destination."""
 
     def extract(src, dst, **kwargs):
-        Path(dst).write_text(text)
+        Path(dst).write_text(text, encoding="utf-8")
         return Path(dst)
 
     return extract
@@ -303,6 +304,51 @@ def test_a_short_crop_with_the_sources_name_is_made_again(tmp_path):
 
     mock_extract.assert_called_once()
     assert files == [met.crop_dir / "20230101_12"]
+    assert files[0].read_text() == "cropped"
+
+
+def _another_worker_crops_first(times, opened=None):
+    """Stand-in for arlmet.extract_subset whose first call finds another worker's crop, holding *times*, landed meanwhile (and open in its run, when *opened* is a list)."""
+    calls = []
+
+    def extract(src, dst, **kwargs):
+        if not calls:
+            crop = write_arl_file(Path(dst).parent / Path(src).name, times=times)
+            if opened is not None:
+                opened.append(crop.open("rb"))
+        calls.append(dst)
+        Path(dst).write_text("cropped", encoding="utf-8")
+        return Path(dst)
+
+    return extract
+
+
+def test_two_workers_cropping_one_file_at_once_keep_the_first_crop(tmp_path):
+    """Windows refuses a rename onto a crop a run has open, so the second crop is not renamed onto it."""
+    met = _archive_met(tmp_path)
+    opened = []
+    extract = _another_worker_crops_first(SIX_HOURS, opened)
+    try:
+        with patch("arlmet.extract_subset", side_effect=extract):
+            files = _files(met)
+    finally:
+        for file in opened:
+            file.close()
+
+    assert files == [met.crop_dir / "20230101_12"]
+    assert files[0].read_bytes() != b"cropped"  # the other worker's crop
+    assert [p.name for p in met.crop_dir.iterdir() if p.name.startswith(".")] == []
+
+
+def test_a_short_crop_another_worker_made_meanwhile_is_made_again(tmp_path):
+    """Its crop is replaced; on Windows a run that has it open makes this fail, and a rerun succeeds."""
+    met = _archive_met(tmp_path)
+    extract = _another_worker_crops_first(SIX_HOURS[:2])
+
+    with patch("arlmet.extract_subset", side_effect=extract) as mock_extract:
+        files = _files(met)
+
+    assert mock_extract.call_count == 2
     assert files[0].read_text() == "cropped"
 
 
@@ -435,9 +481,9 @@ def test_a_crop_appears_only_when_complete(tmp_path):
     def extract(src, dst, **kwargs):
         assert Path(dst).parent == met.crop_dir
         assert Path(dst) != final
-        Path(dst).write_text("half")
+        Path(dst).write_text("half", encoding="utf-8")
         assert not final.exists()
-        Path(dst).write_text("cropped")
+        Path(dst).write_text("cropped", encoding="utf-8")
         return Path(dst)
 
     with patch("arlmet.extract_subset", side_effect=extract):
@@ -452,7 +498,7 @@ def test_a_failed_crop_leaves_nothing_behind(tmp_path):
     met = _archive_met(tmp_path)
 
     def extract(src, dst, **kwargs):
-        Path(dst).write_text("half")
+        Path(dst).write_text("half", encoding="utf-8")
         raise OSError("disk full")
 
     with (
@@ -1397,7 +1443,7 @@ def test_check_refuses_files_that_hold_one_time_period(tmp_path):
     met = _make_met(tmp_path)
     with pytest.raises(
         MeteorologyError,
-        match=f"met file {files[0]} holds one time period.*Only one time period of "
+        match=f"met file {re.escape(str(files[0]))} holds one time period.*Only one time period of "
         "meteo data",
     ) as info:
         met.check(files, _WINDOW)
@@ -1410,7 +1456,9 @@ def test_check_refuses_one_file_with_one_time_period_among_longer_ones(tmp_path)
     )
     short = write_arl_file(tmp_path / "20230101_12", times=["2023-01-01 12:00"])
     met = _make_met(tmp_path)
-    with pytest.raises(MeteorologyError, match=f"met file {short} holds one time"):
+    with pytest.raises(
+        MeteorologyError, match=f"met file {re.escape(str(short))} holds one time"
+    ):
         met.check([*files, short], _WINDOW)
 
 
@@ -1481,7 +1529,7 @@ def test_check_names_a_damaged_file(tmp_path):
     met = _make_met(tmp_path)
     with pytest.raises(
         MeteorologyError,
-        match=f"met file {damaged} is damaged: 2023-01-01 11:00 has 1 of the 2 data "
+        match=f"met file {re.escape(str(damaged))} is damaged: 2023-01-01 11:00 has 1 of the 2 data "
         "records",
     ):
         met.check(files, _WINDOW)
