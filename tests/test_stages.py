@@ -5,7 +5,7 @@ import pytest
 from runtraj.config import ProjectConfig
 from runtraj.exceptions import MissingClass, RuntrajError
 from runtraj.identity import settings_hash, stage_hash
-from runtraj.stages import check_stage, get_stage, ordered, reads
+from runtraj.stages import Stage, check_stage, get_stage, ordered
 
 from .fixtures.factories import make_met_config
 from .fixtures.stages import (
@@ -33,16 +33,53 @@ def _config(tmp_path, **blocks) -> ProjectConfig:
 def test_a_stage_is_made_from_its_import_path():
     stage = get_stage(COUNT)
     assert isinstance(stage, CountStage)
-    assert (stage.name, stage.suffix, reads(stage)) == ("count", ".txt", ())
-    assert reads(get_stage(DOUBLE)) == ("count",)
+    assert (stage.name, stage.suffix, stage.reads) == ("count", ".txt", ())
+    assert get_stage(DOUBLE).reads == ("count",)
     assert get_stage(COUNT) is stage  # made once
 
 
-def test_a_class_without_the_members_of_a_stage_is_refused():
-    with pytest.raises(ValueError, match="is not a stage: it has no resolve, check"):
-        get_stage("tests.fixtures.stages.Forgetful")
-    with pytest.raises(ValueError, match="is not a stage: it has no name, config"):
+def test_a_class_that_does_not_subclass_stage_is_refused():
+    with pytest.raises(ValueError, match="must subclass runtraj.stages.Stage"):
         get_stage("tests.fixtures.stages.CountConfig")
+
+
+class _NoSuffix(Stage[CountConfig]):
+    name = "nosuffix"
+    config_class = CountConfig
+
+    def run(self, config, sim, path):
+        raise NotImplementedError
+
+
+def test_a_stage_that_sets_no_suffix_is_refused():
+    with pytest.raises(ValueError, match="is not a stage: it has no suffix"):
+        get_stage("tests.test_stages._NoSuffix")
+
+
+class _NoRun(Stage[CountConfig]):
+    name = "norun"
+    config_class = CountConfig
+    suffix = ".txt"
+
+
+def test_a_stage_without_run_is_refused():
+    with pytest.raises(ValueError, match="is not a stage: it has no run"):
+        get_stage("tests.test_stages._NoRun")
+
+
+def test_check_stage_reports_a_name_spelled_almost_like_a_hook():
+    class Count(CountStage):
+        read = ("double",)
+        counted = True  # a helper of its own, spelled like no hook
+
+    with pytest.raises(AssertionError, match="Count.read is spelled almost like"):
+        check_stage(Count(), CountConfig())
+
+
+def test_a_stage_keeps_the_defaults_it_does_not_override():
+    stage = get_stage("tests.fixtures.stages.Forgetful")
+    assert (stage.reads, stage.result, stage.version) == ((), "particles", None)
+    assert stage.check(stage.config_class(), None, None) == []
 
 
 @pytest.mark.parametrize("name", ["particles", "logs", "scratch", "state", "stage"])
