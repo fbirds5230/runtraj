@@ -7,6 +7,31 @@ All notable changes to runtraj are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0a5] - 2026-11-24
+
+### Added
+
+- Run HYSPLIT on Windows (`exec/hycs_std.exe`), and test runtraj on windows-latest.
+- Run a project as a PBS Pro or OpenPBS job array with `backend: pbs`.
+- A backend is a `Backend` class, found by name or by the import path of its class, so a scheduler runtraj does not submit to can be added from another package.
+- A guide to running a project on any scheduler: the `--task` contract, GNU parallel and LSF examples, and the exit codes.
+- `runtraj.testing.run_stage` runs a stage end to end through a project, on a replay transport model, so a stage in another package can test itself the way a project runs it.
+- A stage may set `version`, which is part of the hash of its settings folders, so a fix that changes a stage's files makes new ones. A stage that never sets it keeps its folders.
+
+### Changed
+
+- **Breaking:** a transport model subclasses `runtraj.models.TransportModel` and a stage subclasses `runtraj.stages.Stage`. Each is a base class with every optional hook at its default, so a model or stage in another package writes `run` and sets its attributes. `BatchedTransportModel` is gone (set `batched = True` and override `run_many`), and so are `runtraj.stages.reads` and `result` (use `stage.reads` and `stage.result`).
+- **Breaking:** a transport model's met hooks (`settings`, `check`, `fetch`, `downloads`, `open`) are on its met config, a subclass of `runtraj.models.MetConfig`. HYSPLIT's `MetConfig` is now `HysplitMetConfig`.
+- **Breaking:** HYSPLIT's met files are found through `arlmet.catalog`, and runtraj's own `Catalog` is gone. This needs arlmet 0.1.0b14. A missing stretch is named by the met steps no file holds. A file cut partway through a time step is not used, two copies of one file fail a run naming both, and so does a short copy beside a longer one. The first run after upgrading reads every met file once to build the catalog (12 minutes on an archive of 16,724 files), and a task then takes about 5 to 9 seconds to list its folder.
+- **Breaking:** a Slurm job array has ten tasks per worker. `n_workers` is the most tasks running at once, `n_tasks` is new, and `array_parallelism` is gone. A task that runs out of time has less left when it starts again.
+- A stopped Slurm task is requeued by its job script, not by the worker. A stopped worker exits with 3 on every backend.
+- The Slurm backend has a module of its own, `runtraj.execution.slurm`.
+
+### Fixed
+
+- Refuse volumes, names, images and delays that Kubernetes would refuse before anything reaches the cluster. `runtraj status` says when the output directory is missing, `runtraj push` warns about files the bucket has that the project no longer does, and `sites.csv` warns on a repeated site.
+- A lock is taken and removed when Windows refuses its file for a moment.
+
 ## [0.1.0a4] - 2026-11-21
 
 ### Added
